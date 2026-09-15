@@ -26,10 +26,12 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/gubkin_bc?schema=public
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
-      ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS}
-      SESSION_SECRET: ${SESSION_SECRET}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
+      ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS:-}
+      # Для локального просмотра можно не создавать .env — секрет по умолчанию.
+      # На реальном сервере обязательно задайте свой SESSION_SECRET в .env.
+      SESSION_SECRET: ${SESSION_SECRET:-local-only-change-me-on-server}
       APP_URL: ${APP_URL:-http://localhost:3000}
       TZ: Europe/Moscow
       ENABLE_SCHEDULER: "true"
