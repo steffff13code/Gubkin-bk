@@ -62,3 +62,38 @@ export function isDueSoon(dueDate: Date | null, now: Date = new Date(), withinDa
   const diff = daysBetween(now, dueDate);
   return diff >= 0 && diff <= withinDays;
 }
+
+/** Сетка календаря на месяц: недели с понедельника, включая дни соседних месяцев. */
+export function getMonthGrid(year: number, month: number): { date: Date; inMonth: boolean }[][] {
+  const first = new Date(Date.UTC(year, month, 1));
+  const firstWeekday = (first.getUTCDay() + 6) % 7; // 0 = понедельник
+  const gridStart = addDays(first, -firstWeekday);
+
+  const weeks: { date: Date; inMonth: boolean }[][] = [];
+  let cursor = gridStart;
+  for (let w = 0; w < 6; w++) {
+    const week: { date: Date; inMonth: boolean }[] = [];
+    for (let d = 0; d < 7; d++) {
+      week.push({ date: cursor, inMonth: cursor.getUTCMonth() === month });
+      cursor = addDays(cursor, 1);
+    }
+    weeks.push(week);
+  }
+  return weeks;
+}
+
+export const WEEKDAY_LABELS_RU = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+export const MONTH_LABELS_RU = [
+  "Январь",
+  "Февраль",
+  "Март",
+  "Апрель",
+  "Май",
+  "Июнь",
+  "Июль",
+  "Август",
+  "Сентябрь",
+  "Октябрь",
+  "Ноябрь",
+  "Декабрь"
+];
