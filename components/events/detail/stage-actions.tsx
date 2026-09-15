@@ -22,7 +22,7 @@ export function StageActions({
     if (!canManage) return null;
     return (
       <form action={sendToApprovalAction.bind(null, event.id)}>
-        <button type="submit" className="rounded bg-ink px-3 py-1.5 text-sm font-bold text-white hover:bg-ink/90">
+        <button type="submit" className="rounded bg-gold px-3 py-1.5 text-sm font-bold text-bg hover:bg-gold/90">
           Отправить на согласование
         </button>
       </form>
@@ -36,7 +36,7 @@ export function StageActions({
     return (
       <div className="flex flex-wrap gap-2">
         <form action={approveEventAction.bind(null, event.id)}>
-          <button type="submit" className="rounded bg-ink px-3 py-1.5 text-sm font-bold text-white hover:bg-ink/90">
+          <button type="submit" className="rounded bg-gold px-3 py-1.5 text-sm font-bold text-bg hover:bg-gold/90">
             Согласовать
           </button>
         </form>
@@ -95,7 +95,7 @@ export function StageActions({
           <label className="mb-1 block text-xs text-muted">Аудитория</label>
           <input type="text" name="venue" className="rounded border border-line bg-bg px-2 py-1.5 text-sm" />
         </div>
-        <button type="submit" className="rounded bg-ink px-3 py-1.5 text-sm font-bold text-white hover:bg-ink/90">
+        <button type="submit" className="rounded bg-gold px-3 py-1.5 text-sm font-bold text-bg hover:bg-gold/90">
           Зафиксировать дату
         </button>
       </form>
@@ -124,7 +124,7 @@ export function StageActions({
               </form>
             </details>
             <form action={markDoneAction.bind(null, event.id)}>
-              <button type="submit" className="rounded bg-ink px-3 py-1.5 text-sm font-bold text-white hover:bg-ink/90">
+              <button type="submit" className="rounded bg-gold px-3 py-1.5 text-sm font-bold text-bg hover:bg-gold/90">
                 Отметить проведённым
               </button>
             </form>

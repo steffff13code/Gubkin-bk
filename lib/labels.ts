@@ -34,6 +34,26 @@ export const EVENT_STAGE_LABELS: Record<EventStage, string> = {
 
 export const BOARD_STAGES: EventStage[] = ["IDEA", "APPROVAL", "PLANNING", "IN_PROGRESS", "DONE", "CLOSED"];
 
+// Цвет плашки-типа на карточке мероприятия и цветной точки колонки доски.
+export const EVENT_TYPE_PILL_CLASSES: Record<EventType, string> = {
+  LECTURE: "bg-accent/20 text-accent",
+  GAME: "bg-success/20 text-success",
+  CASE: "bg-gold/20 text-gold",
+  CONFERENCE: "bg-[#B98CFF]/20 text-[#B98CFF]",
+  SERIES: "bg-[#3FC1C9]/20 text-[#3FC1C9]",
+  INTENSIVE: "bg-danger/20 text-danger"
+};
+
+export const EVENT_STAGE_DOT_CLASSES: Record<EventStage, string> = {
+  IDEA: "bg-muted",
+  APPROVAL: "bg-gold",
+  PLANNING: "bg-accent",
+  IN_PROGRESS: "bg-[#3FC1C9]",
+  DONE: "bg-success",
+  CLOSED: "bg-muted",
+  REJECTED: "bg-danger"
+};
+
 export const DEPARTMENT_LABELS: Record<DepartmentCode, string> = {
   GUESTS: "Гости",
   SECURITY: "ЦБ",

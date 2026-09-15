@@ -3,12 +3,29 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 body {
-  background-color: #f4f5f8;
-  color: #1b2a4a;
+  background-color: #050b1a;
+  color: #f2f5fa;
+}
+
+/* Тонкая скроллбар-стилизация под тёмную тему */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #1d2e52;
+  border-radius: 6px;
+}
+
+select {
+  color-scheme: dark;
 }
 
 .markdown h1 {

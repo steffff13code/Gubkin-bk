@@ -3,11 +3,13 @@ import type { DepartmentCode, EventType } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
 import { isLeadOrAdmin } from "@/lib/permissions";
 import { getEventsList, getLeadOptions } from "@/lib/queries/events";
+import { EVENT_STAGE_LABELS } from "@/lib/labels";
 import { FilterBar } from "@/components/events/filter-bar";
 import { ViewTabs } from "@/components/events/view-tabs";
 import { BoardView } from "@/components/events/board-view";
 import { ListView } from "@/components/events/list-view";
 import { CalendarView } from "@/components/events/calendar-view";
+import { PlusIcon } from "@/components/icons";
 
 export default async function HomePage({
   searchParams
@@ -28,27 +30,44 @@ export default async function HomePage({
       department: searchParams.department as DepartmentCode | undefined,
       leadId: searchParams.lead,
       mine: searchParams.mine === "1",
-      currentUserId: user?.id ?? null
+      currentUserId: user?.id ?? null,
+      q: searchParams.q
     }),
     getLeadOptions()
   ]);
 
+  const stageCounts = new Map<string, number>();
+  for (const e of events) stageCounts.set(e.stage, (stageCounts.get(e.stage) ?? 0) + 1);
+  const statLine = [`${events.length} мероприятий`]
+    .concat(
+      (["IN_PROGRESS", "APPROVAL", "DONE"] as const)
+        .filter((s) => stageCounts.get(s))
+        .map((s) => `${stageCounts.get(s)} ${EVENT_STAGE_LABELS[s].toLowerCase()}`)
+    )
+    .join(" · ");
+
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-ink">Поток мероприятий</h1>
+      <div className="mb-1 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-ink">Поток мероприятий</h1>
+          <p className="mt-1 text-sm text-muted">{statLine}</p>
+        </div>
         {isLeadOrAdmin(user) && (
           <Link
             href="/events/new"
-            className="rounded border border-line bg-surface px-3 py-1.5 text-sm font-bold text-ink hover:border-gold"
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-gold px-4 py-2 text-sm font-bold text-bg hover:bg-gold/90"
           >
+            <PlusIcon className="h-4 w-4" />
             Новое мероприятие
           </Link>
         )}
       </div>
 
-      <ViewTabs view={view} searchParams={searchParams} />
-      <FilterBar leads={leads} showMine={!!user} />
+      <div className="mt-4">
+        <ViewTabs view={view} searchParams={searchParams} />
+        <FilterBar leads={leads} showMine={!!user} />
+      </div>
 
       {view === "list" && <ListView events={events} />}
       {view === "calendar" && (

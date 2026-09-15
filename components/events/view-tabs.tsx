@@ -1,10 +1,11 @@
 import Link from "next/link";
 import clsx from "clsx";
+import { CalendarIcon, GridIcon } from "@/components/icons";
 
 const VIEWS = [
-  { key: "board", label: "Доска" },
-  { key: "list", label: "Список" },
-  { key: "calendar", label: "Календарь" }
+  { key: "board", label: "Доска", icon: GridIcon },
+  { key: "list", label: "Список", icon: null },
+  { key: "calendar", label: "Календарь", icon: CalendarIcon }
 ];
 
 export function ViewTabs({
@@ -24,19 +25,23 @@ export function ViewTabs({
   }
 
   return (
-    <div className="mb-4 flex gap-2">
-      {VIEWS.map((v) => (
-        <Link
-          key={v.key}
-          href={hrefFor(v.key)}
-          className={clsx(
-            "rounded border px-3 py-1.5 text-sm",
-            view === v.key ? "border-gold bg-gold/10 font-bold text-ink" : "border-line text-muted hover:text-ink"
-          )}
-        >
-          {v.label}
-        </Link>
-      ))}
+    <div className="mb-4 inline-flex gap-1 rounded-xl border border-line bg-surface p-1">
+      {VIEWS.map((v) => {
+        const Icon = v.icon;
+        return (
+          <Link
+            key={v.key}
+            href={hrefFor(v.key)}
+            className={clsx(
+              "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm",
+              view === v.key ? "bg-accent/20 font-bold text-ink" : "text-muted hover:text-ink"
+            )}
+          >
+            {Icon && <Icon className="h-4 w-4" />}
+            {v.label}
+          </Link>
+        );
+      })}
     </div>
   );
 }

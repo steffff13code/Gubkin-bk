@@ -47,7 +47,7 @@ export function ResultsTab({ event, canManage }: { event: EventDetail; canManage
                 className="w-full rounded border border-line bg-bg px-2 py-1.5 text-sm"
               />
             </div>
-            <button type="submit" className="rounded bg-ink px-3 py-1.5 text-sm font-bold text-white hover:bg-ink/90">
+            <button type="submit" className="rounded bg-gold px-3 py-1.5 text-sm font-bold text-bg hover:bg-gold/90">
               Сохранить ретро
             </button>
           </form>
@@ -78,7 +78,7 @@ export function ResultsTab({ event, canManage }: { event: EventDetail; canManage
             Нужны: заполненное ретро, ссылка на фотоотчёт{hasPhotoReport ? " (есть)" : " (нет)"} и фактическая посещаемость.
           </p>
           <form action={closeEventAction.bind(null, event.id)}>
-            <button type="submit" className="rounded bg-ink px-3 py-1.5 text-sm font-bold text-white hover:bg-ink/90">
+            <button type="submit" className="rounded bg-gold px-3 py-1.5 text-sm font-bold text-bg hover:bg-gold/90">
               Закрыть мероприятие
             </button>
           </form>

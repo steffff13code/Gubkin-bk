@@ -9,6 +9,7 @@ export type EventFilters = {
   mine?: boolean;
   currentUserId?: string | null;
   includeRejected?: boolean;
+  q?: string;
 };
 
 export type EventListItem = {
@@ -33,6 +34,7 @@ export async function getEventsList(filters: EventFilters): Promise<EventListIte
   if (filters.leadId) where.leadId = filters.leadId;
   if (filters.department) where.tasks = { some: { department: filters.department } };
   if (!filters.includeRejected) where.stage = { not: "REJECTED" };
+  if (filters.q?.trim()) where.title = { contains: filters.q.trim(), mode: "insensitive" };
 
   if (filters.mine && filters.currentUserId) {
     where.OR = [

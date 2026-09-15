@@ -83,7 +83,7 @@ function TaskRow({
             disabled={task.status === "SKIPPED"}
             className={clsx(
               "flex h-4 w-4 items-center justify-center rounded border",
-              task.status === "DONE" ? "border-ink bg-ink text-white" : "border-line"
+              task.status === "DONE" ? "border-gold bg-gold text-bg" : "border-line"
             )}
             title={task.status === "DONE" ? "Открыть заново" : "Отметить выполненной"}
           >

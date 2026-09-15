@@ -1,7 +1,8 @@
 import type { Config } from "tailwindcss";
 
-// Палитра и типографика — раздел 10 ТЗ: светлый рабочий интерфейс,
-// тёмно-синий + золото только для акцентов, красный только для просрочки.
+// Тёмная палитра клуба — тёмно-синий фон со свечением + золото для
+// единственного основного CTA на экране. Изменено по прямому запросу
+// пользователя (см. DECISIONS.md) — заменяет светлую тему из раздела 10 ТЗ.
 const config: Config = {
   content: [
     "./app/**/*.{ts,tsx}",
@@ -11,20 +12,31 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        bg: "#F4F5F8",
-        surface: "#FFFFFF",
-        ink: "#1B2A4A",
-        muted: "#5B6785",
-        line: "#D9DDE7",
-        gold: "#C9A961",
-        danger: "#C4453B",
-        success: "#2E7D4F"
+        bg: "#050B1A",
+        surface: "#0E1B36",
+        surface2: "#122045",
+        ink: "#F2F5FA",
+        muted: "#8B9BC0",
+        line: "#1D2E52",
+        gold: "#E8B86D",
+        accent: "#2E7BFF",
+        danger: "#FF6B6B",
+        success: "#4ADE80"
       },
       fontFamily: {
         sans: ["var(--font-golos)", "system-ui", "sans-serif"]
       },
       borderRadius: {
-        DEFAULT: "6px"
+        DEFAULT: "10px"
+      },
+      boxShadow: {
+        glow: "0 0 60px -10px rgba(46, 123, 255, 0.45)"
+      },
+      backgroundImage: {
+        "radial-accent":
+          "radial-gradient(1200px 600px at 15% -10%, rgba(46, 123, 255, 0.35), transparent 60%)",
+        "radial-accent-2":
+          "radial-gradient(900px 500px at 100% 30%, rgba(46, 123, 255, 0.18), transparent 60%)"
       }
     }
   },

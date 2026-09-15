@@ -194,7 +194,7 @@ export async function OverviewTab({
                 />
               </div>
             </div>
-            <button type="submit" className="rounded bg-ink px-3 py-1.5 text-sm font-bold text-white hover:bg-ink/90">
+            <button type="submit" className="rounded bg-gold px-3 py-1.5 text-sm font-bold text-bg hover:bg-gold/90">
               Сохранить
             </button>
           </form>

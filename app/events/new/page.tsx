@@ -46,7 +46,7 @@ export default async function NewEventPage() {
             placeholder="Markdown — программа мероприятия"
           />
         </div>
-        <button type="submit" className="rounded bg-ink px-4 py-2 text-sm font-bold text-white hover:bg-ink/90">
+        <button type="submit" className="rounded bg-gold px-4 py-2 text-sm font-bold text-bg hover:bg-gold/90">
           Создать
         </button>
       </form>

@@ -2,6 +2,26 @@ import Link from "next/link";
 import { getRegulationsList } from "@/lib/queries/regulations";
 import { DEPARTMENT_LABELS } from "@/lib/labels";
 import type { DepartmentCode } from "@prisma/client";
+import {
+  CameraIcon,
+  ChevronRightIcon,
+  DocIcon,
+  MapPinIcon,
+  MegaphoneIcon,
+  ShieldIcon,
+  UsersIcon
+} from "@/components/icons";
+
+const GROUP_ICONS: Record<string, (p: { className?: string }) => React.ReactElement> = {
+  _: DocIcon,
+  GUESTS: UsersIcon,
+  SECURITY: ShieldIcon,
+  PR: MegaphoneIcon,
+  VENUE_BOOKING: MapPinIcon,
+  CONTENT: CameraIcon,
+  STAGE: MapPinIcon,
+  INTENSIVES: DocIcon
+};
 
 export default async function RegulationsPage() {
   const regulations = await getRegulationsList();
@@ -14,24 +34,33 @@ export default async function RegulationsPage() {
 
   return (
     <div>
-      <h1 className="mb-4 text-xl font-bold text-ink">Регламенты</h1>
-      <div className="space-y-6">
-        {Array.from(groups.entries()).map(([key, items]) => (
-          <section key={key}>
-            <h2 className="mb-2 text-sm font-bold text-muted">
-              {key === "_" ? "Общее" : DEPARTMENT_LABELS[key as DepartmentCode]}
-            </h2>
-            <ul className="divide-y divide-line rounded border border-line bg-surface">
-              {items.map((r) => (
-                <li key={r.id}>
-                  <Link href={`/regulations/${r.slug}`} className="block px-4 py-3 text-sm text-ink hover:bg-bg">
+      <h1 className="text-2xl font-bold text-ink">Регламенты</h1>
+      <p className="mt-1 text-sm text-muted">Основные документы и регламенты клуба</p>
+
+      <div className="mt-6 space-y-6">
+        {Array.from(groups.entries()).map(([key, items]) => {
+          const Icon = GROUP_ICONS[key] ?? DocIcon;
+          return (
+            <section key={key}>
+              <h2 className="mb-2 flex items-center gap-2 text-sm font-bold text-accent">
+                <Icon className="h-4 w-4" />
+                {key === "_" ? "Общее" : DEPARTMENT_LABELS[key as DepartmentCode]}
+              </h2>
+              <div className="space-y-1.5">
+                {items.map((r) => (
+                  <Link
+                    key={r.id}
+                    href={`/regulations/${r.slug}`}
+                    className="flex items-center justify-between rounded-lg border border-line bg-surface px-4 py-3 text-sm text-ink hover:border-accent/50"
+                  >
                     {r.title}
+                    <ChevronRightIcon className="h-4 w-4 text-muted" />
                   </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </div>
     </div>
   );

@@ -56,7 +56,7 @@ export default async function IdeasPage({ searchParams }: { searchParams: { erro
           ) : (
             <p className="text-xs text-muted">Без входа идея отправляется анонимно.</p>
           )}
-          <button type="submit" className="ml-auto rounded bg-ink px-3 py-1.5 text-sm font-bold text-white hover:bg-ink/90">
+          <button type="submit" className="ml-auto rounded bg-gold px-3 py-1.5 text-sm font-bold text-bg hover:bg-gold/90">
             Отправить
           </button>
         </div>

@@ -51,7 +51,7 @@ export function FilesTab({ event, canPost }: { event: EventDetail; canPost: bool
             </select>
             <input name="title" required placeholder="Название" className="flex-1 rounded border border-line bg-bg px-2 py-1.5 text-sm" />
             <input name="url" required placeholder="https://drive.google.com/..." className="flex-1 rounded border border-line bg-bg px-2 py-1.5 text-sm" />
-            <button type="submit" className="rounded bg-ink px-3 py-1.5 text-sm font-bold text-white hover:bg-ink/90">
+            <button type="submit" className="rounded bg-gold px-3 py-1.5 text-sm font-bold text-bg hover:bg-gold/90">
               Добавить
             </button>
           </div>
