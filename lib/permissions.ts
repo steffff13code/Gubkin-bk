@@ -1,0 +1,36 @@
+import type { Role } from "@prisma/client";
+import { getCurrentUser, type CurrentUser } from "@/lib/auth";
+
+const ROLE_RANK: Record<Role, number> = { READER: 0, MEMBER: 1, LEAD: 2, ADMIN: 3 };
+
+export function roleAtLeast(role: Role, min: Role): boolean {
+  return ROLE_RANK[role] >= ROLE_RANK[min];
+}
+
+export function isAdmin(user: CurrentUser | null): boolean {
+  return user?.role === "ADMIN";
+}
+
+export function isLeadOrAdmin(user: CurrentUser | null): boolean {
+  return !!user && roleAtLeast(user.role, "LEAD");
+}
+
+export function isMember(user: CurrentUser | null): boolean {
+  return !!user && roleAtLeast(user.role, "MEMBER");
+}
+
+export class PermissionError extends Error {}
+
+export async function requireUser(): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!user) throw new PermissionError("Нужно войти через Telegram.");
+  return user;
+}
+
+export async function requireRole(min: Role): Promise<CurrentUser> {
+  const user = await requireUser();
+  if (!roleAtLeast(user.role, min)) {
+    throw new PermissionError("Недостаточно прав для этого действия.");
+  }
+  return user;
+}
