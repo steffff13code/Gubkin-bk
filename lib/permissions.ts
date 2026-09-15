@@ -19,6 +19,15 @@ export function isMember(user: CurrentUser | null): boolean {
   return !!user && roleAtLeast(user.role, "MEMBER");
 }
 
+export function canManageEvent(
+  user: CurrentUser | null,
+  event: { leadId: string | null; createdById: string }
+): boolean {
+  if (!user) return false;
+  if (user.role === "ADMIN") return true;
+  return user.role === "LEAD" && (event.leadId === user.id || event.createdById === user.id);
+}
+
 export class PermissionError extends Error {}
 
 export async function requireUser(): Promise<CurrentUser> {
