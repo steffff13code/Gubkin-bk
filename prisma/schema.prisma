@@ -219,6 +219,10 @@ model TaskTemplate {
   required         Boolean @default(true)
   needsTwoAssignees Boolean @default(false)
 
+  // Закрытие задачи, созданной по этому шаблону, зажигает указанный триггер
+  // для других задач этого мероприятия (см. раздел 8 ТЗ, п. 6).
+  firesTrigger TaskTriggerEvent?
+
   group     TaskGroup
   sortOrder Int
 
@@ -249,6 +253,7 @@ model Task {
   triggerType  TaskTriggerType
   offsetDays   Int?
   triggerEvent TaskTriggerEvent?
+  firesTrigger TaskTriggerEvent?
 
   status   TaskStatus @default(TODO)
   required Boolean    @default(true)
