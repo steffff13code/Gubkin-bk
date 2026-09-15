@@ -1,3 +1,4 @@
+import { appUrl as getAppUrl } from "@/lib/app-url";
 import { prisma } from "@/lib/db";
 import { notifyOnce, NOTIFICATION_KIND } from "@/lib/notifications/notify";
 
@@ -6,7 +7,7 @@ export async function notifyLeadOfDecision(eventId: string, decision: "APPROVED"
   const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId } });
   if (!event.leadId) return;
 
-  const appUrl = process.env.APP_URL || "";
+  const appUrl = getAppUrl();
   const wording = {
     APPROVED: "согласовано — можно фиксировать дату",
     RETURNED: "возвращено на доработку",

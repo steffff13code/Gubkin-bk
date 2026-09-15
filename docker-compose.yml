@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   db:
     image: postgres:16-alpine
@@ -37,7 +35,7 @@ services:
       ENABLE_SCHEDULER: "true"
     ports:
       - "3000:3000"
-    command: sh -c "npx prisma migrate deploy && npx prisma db seed && node server.js"
+    # команда запуска — в Dockerfile (миграции, сид, next start)
 
 volumes:
   db_data:

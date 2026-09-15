@@ -1,10 +1,11 @@
+import { appUrl as getAppUrl } from "@/lib/app-url";
 export default function LoginPage({
   searchParams
 }: {
   searchParams: { error?: string };
 }) {
   const username = process.env.TELEGRAM_BOT_USERNAME;
-  const appUrl = process.env.APP_URL || "";
+  const appUrl = getAppUrl();
 
   return (
     <div className="mx-auto max-w-sm rounded border border-line bg-surface p-6 text-center">

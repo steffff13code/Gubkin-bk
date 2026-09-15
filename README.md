@@ -8,6 +8,22 @@
 Стек: Next.js (App Router) + TypeScript + Tailwind, PostgreSQL + Prisma,
 Telegram Login Widget + grammY-бот, node-cron.
 
+## Самый быстрый способ посмотреть (Render, без установки)
+
+1. Зайдите на https://render.com и нажмите «Get Started» → войдите через GitHub.
+2. В панели: **New +** → **Blueprint** → подключите репозиторий
+   `steffff13code/Gubkin-bk` → в поле Branch выберите
+   `claude/business-club-platform-y0k1oq` → **Apply**.
+3. Render создаст бесплатную PostgreSQL и веб-сервис по `render.yaml`,
+   соберёт Docker-образ (5–10 минут), применит миграции и сид.
+4. Откройте адрес вида `https://gubkin-bc.onrender.com` из панели.
+
+Бесплатный тариф засыпает после 15 минут простоя — первое открытие
+может занять до минуты. Чтобы включить вход через Telegram, заведите бота
+(см. ниже), выполните у @BotFather `/setdomain` с адресом `*.onrender.com`
+и заполните `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`,
+`ADMIN_TELEGRAM_IDS` в Environment сервиса на Render.
+
 ## Быстрый старт (Docker)
 
 ```bash

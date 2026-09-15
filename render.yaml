@@ -1,0 +1,32 @@
+# Blueprint для Render.com: New → Blueprint → выбрать этот репозиторий и ветку → Apply.
+# Поднимает веб-приложение (Docker) и бесплатную PostgreSQL, связывает их.
+services:
+  - type: web
+    name: gubkin-bc
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: gubkin-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: TZ
+        value: Europe/Moscow
+      - key: ENABLE_SCHEDULER
+        value: "true"
+      # Заполните в панели Render, когда заведёте бота (необязательно для просмотра):
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_BOT_USERNAME
+        sync: false
+      - key: ADMIN_TELEGRAM_IDS
+        sync: false
+
+databases:
+  - name: gubkin-db
+    plan: free
+    databaseName: gubkin_bc

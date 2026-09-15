@@ -1,25 +1,16 @@
-FROM node:20-alpine AS base
+FROM node:20-alpine AS builder
 WORKDIR /app
-
-FROM base AS deps
-COPY package.json package-lock.json* ./
-RUN npm install
-
-FROM base AS builder
-COPY --from=deps /app/node_modules ./node_modules
+RUN apk add --no-cache openssl
+COPY package.json package-lock.json ./
+RUN npm ci
 COPY . .
-RUN npx prisma generate
-RUN npm run build
+RUN npx prisma generate && npm run build
 
-FROM base AS runner
+FROM node:20-alpine AS runner
+WORKDIR /app
+RUN apk add --no-cache openssl
 ENV NODE_ENV=production
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/tsx ./node_modules/tsx
+COPY --from=builder /app ./
 EXPOSE 3000
-CMD ["node", "server.js"]
+# Миграции и сид идемпотентны — безопасно выполнять при каждом старте.
+CMD ["sh", "-c", "npx prisma migrate deploy && npx tsx prisma/seed.ts && npx next start -p ${PORT:-3000}"]

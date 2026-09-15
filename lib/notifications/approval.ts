@@ -1,3 +1,4 @@
+import { appUrl as getAppUrl } from "@/lib/app-url";
 import { prisma } from "@/lib/db";
 import { notifyOnce, NOTIFICATION_KIND } from "@/lib/notifications/notify";
 
@@ -5,7 +6,7 @@ import { notifyOnce, NOTIFICATION_KIND } from "@/lib/notifications/notify";
 export async function notifyAdminsOfApproval(eventId: string): Promise<void> {
   const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId } });
   const admins = await prisma.user.findMany({ where: { role: "ADMIN", isActive: true } });
-  const appUrl = process.env.APP_URL || "";
+  const appUrl = getAppUrl();
   const text = `Мероприятие «${event.title}» отправлено на согласование.\n${appUrl}/events/${eventId}`;
 
   for (const admin of admins) {
