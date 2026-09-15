@@ -31,7 +31,8 @@ export default async function HomePage({
       leadId: searchParams.lead,
       mine: searchParams.mine === "1",
       currentUserId: user?.id ?? null,
-      q: searchParams.q
+      q: searchParams.q,
+      includeRejected: view === "list" && searchParams.rejected === "1"
     }),
     getLeadOptions()
   ]);
@@ -66,7 +67,7 @@ export default async function HomePage({
 
       <div className="mt-4">
         <ViewTabs view={view} searchParams={searchParams} />
-        <FilterBar leads={leads} showMine={!!user} />
+        <FilterBar leads={leads} showMine={!!user} showRejected={view === "list"} />
       </div>
 
       {view === "list" && <ListView events={events} />}

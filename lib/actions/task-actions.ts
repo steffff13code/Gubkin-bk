@@ -43,6 +43,9 @@ export async function toggleTaskAction(taskId: string, done: boolean, formData?:
           where: { id: taskId },
           data: { status: "DONE", completedAt: new Date(), completedById: user.id }
         });
+        await prisma.activityLog.create({
+          data: { eventId: task.eventId, userId: user.id, action: "TASK_DONE", payload: { title: task.title } }
+        });
         if (task.firesTrigger) {
           await fireTaskTrigger(task.eventId, task.firesTrigger, new Date());
         }
@@ -50,6 +53,9 @@ export async function toggleTaskAction(taskId: string, done: boolean, formData?:
         await prisma.task.update({
           where: { id: taskId },
           data: { status: "TODO", completedAt: null, completedById: null }
+        });
+        await prisma.activityLog.create({
+          data: { eventId: task.eventId, userId: user.id, action: "TASK_REOPENED", payload: { title: task.title } }
         });
       }
     },
@@ -66,6 +72,9 @@ export async function skipTaskAction(taskId: string): Promise<void> {
     }
     if (task.required) throw new Error("Обязательную задачу нельзя пропустить.");
     await prisma.task.update({ where: { id: taskId }, data: { status: "SKIPPED" } });
+    await prisma.activityLog.create({
+      data: { eventId: task.eventId, userId: user.id, action: "TASK_SKIPPED", payload: { title: task.title } }
+    });
   });
 }
 
@@ -73,7 +82,11 @@ export async function assignToMeAction(taskId: string): Promise<void> {
   const task = await loadTaskWithEvent(taskId);
   await runOrRedirect(task.eventId, async () => {
     const user = await requireUser();
+    if (task.status !== "TODO") throw new Error("Закрытую задачу нельзя взять на себя.");
     await prisma.task.update({ where: { id: taskId }, data: { assigneeId: user.id } });
+    await prisma.activityLog.create({
+      data: { eventId: task.eventId, userId: user.id, action: "TASK_TAKEN", payload: { title: task.title } }
+    });
   });
 }
 
@@ -89,6 +102,8 @@ export async function updateTaskAction(taskId: string, formData: FormData): Prom
     const dueDateStr = String(formData.get("dueDate") || "");
     const description = String(formData.get("description") || "") || null;
 
+    if (dueDateStr && Number.isNaN(new Date(dueDateStr).getTime())) throw new Error("Срок указан неверно.");
+
     await prisma.task.update({
       where: { id: taskId },
       data: {
@@ -97,6 +112,9 @@ export async function updateTaskAction(taskId: string, formData: FormData): Prom
         dueDate: dueDateStr ? new Date(dueDateStr) : null,
         description
       }
+    });
+    await prisma.activityLog.create({
+      data: { eventId: task.eventId, userId: user.id, action: "TASK_UPDATED", payload: { title: task.title } }
     });
   });
 }

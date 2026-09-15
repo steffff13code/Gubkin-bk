@@ -1,7 +1,8 @@
 import { getCurrentUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/permissions";
 import { getIdeasList } from "@/lib/queries/ideas";
-import { DEPARTMENT_LABELS, IDEA_CATEGORY_LABELS, IDEA_STATUS_LABELS } from "@/lib/labels";
+import Link from "next/link";
+import { DEPARTMENT_LABELS, EVENT_TYPE_LABELS, IDEA_CATEGORY_LABELS, IDEA_STATUS_LABELS } from "@/lib/labels";
 import { formatDate } from "@/lib/time";
 import {
   convertIdeaToEventAction,
@@ -110,8 +111,19 @@ export default async function IdeasPage({ searchParams }: { searchParams: { erro
                     Сохранить
                   </button>
                 </form>
-                {!idea.convertedEventId && (
-                  <form action={convertIdeaToEventAction.bind(null, idea.id)} className="mt-2">
+                {idea.convertedEventId ? (
+                  <Link href={`/events/${idea.convertedEventId}`} className="mt-2 inline-block text-xs font-bold text-ink underline">
+                    Открыть созданное мероприятие
+                  </Link>
+                ) : (
+                  <form action={convertIdeaToEventAction.bind(null, idea.id)} className="mt-2 flex items-center gap-2">
+                    <select name="type" className="rounded border border-line bg-bg px-2 py-1 text-xs">
+                      {Object.entries(EVENT_TYPE_LABELS).map(([k, v]) => (
+                        <option key={k} value={k}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
                     <button type="submit" className="text-xs font-bold text-ink underline">
                       Сделать мероприятием
                     </button>

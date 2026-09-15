@@ -1,4 +1,4 @@
-import type { DepartmentCode, TaskTriggerEvent } from "@prisma/client";
+import type { DepartmentCode, TaskAutoComplete, TaskTriggerEvent } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import {
   applyTriggerDueDates,
@@ -83,4 +83,22 @@ export async function fireTaskTrigger(eventId: string, triggerEvent: TaskTrigger
   await prisma.activityLog.create({
     data: { eventId, action: "TRIGGER_FIRED", payload: { triggerEvent, tasksScheduled: updates.length } }
   });
+}
+
+/** Автозакрытие задач, чьё состояние уже наступило в карточке (фотоотчёт прикреплён, ретро заполнено). */
+export async function autoCompleteTasks(eventId: string, reason: TaskAutoComplete, actorId: string) {
+  const pending = await prisma.task.findMany({ where: { eventId, autoComplete: reason, status: "TODO" } });
+  if (pending.length === 0) return;
+  const now = new Date();
+  await prisma.$transaction([
+    ...pending.map((t) =>
+      prisma.task.update({ where: { id: t.id }, data: { status: "DONE", completedAt: now, completedById: actorId } })
+    ),
+    prisma.activityLog.create({
+      data: { eventId, userId: actorId, action: "TASKS_AUTO_COMPLETED", payload: { reason, titles: pending.map((t) => t.title) } }
+    })
+  ]);
+  for (const t of pending) {
+    if (t.firesTrigger) await fireTaskTrigger(eventId, t.firesTrigger, now);
+  }
 }

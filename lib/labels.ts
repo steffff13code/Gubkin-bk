@@ -8,6 +8,7 @@ import type {
   IdeaCategory,
   IdeaStatus,
   Role,
+  TaskAutoComplete,
   TaskGroup,
   TaskTriggerEvent,
   TaskTriggerType
@@ -108,6 +109,11 @@ export const DEPARTMENT_POSITION_LABELS: Record<DepartmentPosition, string> = {
 export const TASK_TRIGGER_TYPE_LABELS: Record<TaskTriggerType, string> = {
   DATE_OFFSET: "От даты мероприятия",
   EVENT: "По событию"
+};
+
+export const TASK_AUTO_COMPLETE_LABELS: Record<TaskAutoComplete, string> = {
+  PHOTO_REPORT_ATTACHED: "когда прикреплён фотоотчёт",
+  RETRO_SAVED: "когда заполнено ретро и посещаемость"
 };
 
 export const TASK_TRIGGER_EVENT_LABELS: Record<TaskTriggerEvent, string> = {

@@ -1,4 +1,4 @@
-import type { DepartmentCode, TaskGroup, TaskTriggerEvent, TaskTriggerType } from "@prisma/client";
+import type { DepartmentCode, TaskAutoComplete, TaskGroup, TaskTriggerEvent, TaskTriggerType } from "@prisma/client";
 
 // Регламент «Лекция с гостем» — раздел 7 ТЗ. Данные используются сидом,
 // чтобы засеять TaskTemplate для EventType.LECTURE.
@@ -11,6 +11,7 @@ export type LectureTemplateRow = {
   required: boolean;
   needsTwoAssignees: boolean;
   firesTrigger: TaskTriggerEvent | null;
+  autoComplete: TaskAutoComplete | null;
   group: TaskGroup;
   sortOrder: number;
 };
@@ -26,6 +27,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
+    autoComplete: null,
     group: "BEFORE",
     sortOrder: 10
   },
@@ -38,6 +40,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: true,
     firesTrigger: "SECURITY_SUBMITTED",
+    autoComplete: null,
     group: "BEFORE",
     sortOrder: 20
   },
@@ -50,6 +53,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: true,
     firesTrigger: "SECURITY_ANSWERED",
+    autoComplete: null,
     group: "BEFORE",
     sortOrder: 30
   },
@@ -62,6 +66,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
+    autoComplete: null,
     group: "BEFORE",
     sortOrder: 40
   },
@@ -74,6 +79,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
+    autoComplete: null,
     group: "BEFORE",
     sortOrder: 50
   },
@@ -86,6 +92,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: false,
     needsTwoAssignees: false,
     firesTrigger: null,
+    autoComplete: null,
     group: "BEFORE",
     sortOrder: 60
   },
@@ -98,6 +105,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
+    autoComplete: null,
     group: "BEFORE",
     sortOrder: 70
   },
@@ -110,6 +118,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
+    autoComplete: null,
     group: "BEFORE",
     sortOrder: 80
   },
@@ -122,6 +131,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
+    autoComplete: null,
     group: "BEFORE",
     sortOrder: 90
   },
@@ -134,6 +144,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
+    autoComplete: null,
     group: "BEFORE",
     sortOrder: 100
   },
@@ -146,6 +157,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: false,
     needsTwoAssignees: false,
     firesTrigger: null,
+    autoComplete: null,
     group: "BEFORE",
     sortOrder: 110
   },
@@ -158,6 +170,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: false,
     firesTrigger: "REGISTRATION_CLOSED",
+    autoComplete: null,
     group: "BEFORE",
     sortOrder: 120
   },
@@ -170,6 +183,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: true,
     firesTrigger: null,
+    autoComplete: null,
     group: "BEFORE",
     sortOrder: 130
   },
@@ -182,6 +196,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
+    autoComplete: null,
     group: "BEFORE",
     sortOrder: 140
   },
@@ -194,6 +209,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: true,
     firesTrigger: null,
+    autoComplete: null,
     group: "BEFORE",
     sortOrder: 150
   },
@@ -206,6 +222,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
+    autoComplete: null,
     group: "BEFORE",
     sortOrder: 160
   },
@@ -220,6 +237,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
+    autoComplete: null,
     group: "EVENT_DAY",
     sortOrder: 200
   },
@@ -232,6 +250,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
+    autoComplete: null,
     group: "EVENT_DAY",
     sortOrder: 210
   },
@@ -244,6 +263,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
+    autoComplete: null,
     group: "EVENT_DAY",
     sortOrder: 220
   },
@@ -256,6 +276,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
+    autoComplete: null,
     group: "EVENT_DAY",
     sortOrder: 230
   },
@@ -268,6 +289,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
+    autoComplete: null,
     group: "EVENT_DAY",
     sortOrder: 240
   },
@@ -280,6 +302,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
+    autoComplete: null,
     group: "EVENT_DAY",
     sortOrder: 250
   },
@@ -292,6 +315,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
+    autoComplete: null,
     group: "EVENT_DAY",
     sortOrder: 260
   },
@@ -304,6 +328,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
+    autoComplete: null,
     group: "EVENT_DAY",
     sortOrder: 270
   },
@@ -316,6 +341,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
+    autoComplete: null,
     group: "EVENT_DAY",
     sortOrder: 280
   },
@@ -330,6 +356,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
+    autoComplete: null,
     group: "AFTER",
     sortOrder: 300
   },
@@ -342,6 +369,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
+    autoComplete: "PHOTO_REPORT_ATTACHED",
     group: "AFTER",
     sortOrder: 310
   },
@@ -354,6 +382,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
+    autoComplete: "RETRO_SAVED",
     group: "AFTER",
     sortOrder: 320
   }

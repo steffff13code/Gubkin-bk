@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import type { AttachmentKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { isMember, requireUser } from "@/lib/permissions";
+import { autoCompleteTasks } from "@/lib/tasks/service";
 
 async function runOrRedirect(eventId: string, tab: string, fn: () => Promise<void>): Promise<never> {
   let error: string | null = null;
@@ -30,9 +31,14 @@ export async function addAttachmentAction(eventId: string, formData: FormData): 
     if (!title || !url) throw new Error("Укажите название и ссылку.");
     if (!/^https:\/\//.test(url)) throw new Error("Ссылка должна начинаться с https://.");
 
-    await prisma.attachment.create({
-      data: { eventId, taskId, kind, title, url, addedById: user.id }
+    await prisma.attachment.create({ data: { eventId, taskId, kind, title, url, addedById: user.id } });
+    await prisma.activityLog.create({
+      data: { eventId, userId: user.id, action: "ATTACHMENT_ADDED", payload: { title, kind } }
     });
+
+    if (kind === "PHOTO_REPORT") {
+      await autoCompleteTasks(eventId, "PHOTO_REPORT_ATTACHED", user.id);
+    }
   });
 }
 
@@ -45,5 +51,8 @@ export async function deleteAttachmentAction(eventId: string, attachmentId: stri
       throw new Error("Удалить файл может только тот, кто его добавил, или администратор.");
     }
     await prisma.attachment.delete({ where: { id: attachmentId } });
+    await prisma.activityLog.create({
+      data: { eventId, userId: user.id, action: "ATTACHMENT_REMOVED", payload: { title: attachment.title } }
+    });
   });
 }

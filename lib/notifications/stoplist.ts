@@ -1,8 +1,14 @@
 import { prisma } from "@/lib/db";
-import { daysBetween } from "@/lib/time";
+import { addDays, daysBetween } from "@/lib/time";
 import { notifyOnce, NOTIFICATION_KIND } from "@/lib/notifications/notify";
 
-/** Раздел 8, п. 4: за 2 дня до мероприятия — стоп-лист незакрытых обязательных задач лиду и администраторам. */
+export const STOPLIST_TITLE_PREFIX = "Стоп-лист";
+
+/**
+ * Раздел 8, п. 4: за 2 дня до мероприятия система собирает список незакрытых
+ * обязательных задач, кладёт его в задачу «Стоп-лист» лида (создаёт её, если
+ * шаблон её не содержит) и отправляет лиду и администраторам.
+ */
 export async function runStoplistCheck(now: Date = new Date()): Promise<void> {
   const events = await prisma.event.findMany({
     where: { stage: "IN_PROGRESS", dateFixed: true, targetDate: { not: null } },
@@ -14,10 +20,33 @@ export async function runStoplistCheck(now: Date = new Date()): Promise<void> {
     if (!event.targetDate) continue;
     if (daysBetween(now, event.targetDate) !== 2) continue;
 
-    const openRequired = event.tasks.filter((t) => t.required && t.status === "TODO");
+    const stoplistTask = event.tasks.find((t) => t.title.startsWith(STOPLIST_TITLE_PREFIX));
+    const openRequired = event.tasks.filter(
+      (t) => t.required && t.status === "TODO" && t.id !== stoplistTask?.id
+    );
     const list = openRequired.length
       ? openRequired.map((t) => `• ${t.title}`).join("\n")
       : "Все обязательные задачи закрыты.";
+
+    if (stoplistTask) {
+      await prisma.task.update({ where: { id: stoplistTask.id }, data: { description: list } });
+    } else {
+      await prisma.task.create({
+        data: {
+          eventId: event.id,
+          title: `${STOPLIST_TITLE_PREFIX}: проверить, что все обязательные задачи закрыты`,
+          description: list,
+          assigneeId: event.leadId,
+          dueDate: addDays(event.targetDate, -2),
+          triggerType: "DATE_OFFSET",
+          offsetDays: -2,
+          required: true,
+          group: "BEFORE",
+          sortOrder: 999
+        }
+      });
+    }
+
     const text = `Стоп-лист по «${event.title}» — мероприятие через 2 дня:\n${list}`;
     const dateKey = event.targetDate.toISOString().slice(0, 10);
 

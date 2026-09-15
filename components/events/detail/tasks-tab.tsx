@@ -126,6 +126,18 @@ function TaskRow({
                   </option>
                 ))}
               </select>
+              <select
+                name="secondAssigneeId"
+                defaultValue={task.secondAssigneeId ?? ""}
+                className="w-full rounded border border-line bg-surface px-1.5 py-1 text-xs"
+              >
+                <option value="">Второй исполнитель — нет</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {displayName(u)}
+                  </option>
+                ))}
+              </select>
               <input
                 type="date"
                 name="dueDate"
@@ -143,6 +155,7 @@ function TaskRow({
                 Сохранить
               </button>
             </form>
+            {task.description && <p className="whitespace-pre-line text-xs text-muted">{task.description}</p>}
             {!task.required && task.status === "TODO" && (
               <form action={skipTaskAction.bind(null, task.id)}>
                 <button type="submit" className="text-xs text-muted underline">

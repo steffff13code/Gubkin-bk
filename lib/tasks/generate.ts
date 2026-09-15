@@ -1,4 +1,4 @@
-import type { DepartmentCode, TaskGroup, TaskTriggerEvent, TaskTriggerType } from "@prisma/client";
+import type { DepartmentCode, TaskAutoComplete, TaskGroup, TaskTriggerEvent, TaskTriggerType } from "@prisma/client";
 import { addDays, startOfUtcDay } from "@/lib/time";
 
 // Чистая логика генерации плана задач по шаблону — без обращений к БД,
@@ -14,6 +14,7 @@ export type TemplateLike = {
   required: boolean;
   needsTwoAssignees: boolean;
   firesTrigger: TaskTriggerEvent | null;
+  autoComplete: TaskAutoComplete | null;
   group: TaskGroup;
   sortOrder: number;
 };
@@ -32,6 +33,7 @@ export type GeneratedTaskRow = {
   offsetDays: number | null;
   triggerEvent: TaskTriggerEvent | null;
   firesTrigger: TaskTriggerEvent | null;
+  autoComplete: TaskAutoComplete | null;
   status: "TODO";
   required: boolean;
   group: TaskGroup;
@@ -100,6 +102,7 @@ export function buildTaskRows(
       offsetDays: t.offsetDays,
       triggerEvent: t.triggerEvent,
       firesTrigger: t.firesTrigger,
+      autoComplete: t.autoComplete,
       status: "TODO",
       required: t.required,
       group: t.group,

@@ -53,6 +53,16 @@ async function main() {
     await prisma.taskTemplate.createMany({
       data: LECTURE_TEMPLATE.map((row) => ({ eventType: "LECTURE" as const, ...row }))
     });
+  } else {
+    // Дозаполняем поля, добавленные позже (autoComplete/firesTrigger), не трогая сроки —
+    // их администратор мог уже поправить в настройках.
+    for (const row of LECTURE_TEMPLATE) {
+      if (!row.autoComplete) continue;
+      await prisma.taskTemplate.updateMany({
+        where: { eventType: "LECTURE", title: row.title, autoComplete: null },
+        data: { autoComplete: row.autoComplete }
+      });
+    }
   }
   // Пустые шаблоны для остальных типов — заполнит администратор в настройках.
   for (const type of ["GAME", "CASE", "CONFERENCE", "SERIES", "INTENSIVE"] as const) {

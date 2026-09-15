@@ -23,6 +23,7 @@ function template(overrides: Partial<TemplateLike> = {}): TemplateLike {
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
+    autoComplete: null,
     group: "BEFORE",
     sortOrder: 10,
     ...overrides

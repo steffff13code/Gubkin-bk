@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import type { DepartmentCode, IdeaCategory, IdeaStatus } from "@prisma/client";
+import type { DepartmentCode, EventType, IdeaCategory, IdeaStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { requireRole, requireUser } from "@/lib/permissions";
@@ -64,15 +64,17 @@ export async function setIdeaStatusAction(ideaId: string, formData: FormData): P
   });
 }
 
-export async function convertIdeaToEventAction(ideaId: string): Promise<void> {
+export async function convertIdeaToEventAction(ideaId: string, formData: FormData): Promise<void> {
   await runOrRedirect(async () => {
     const user = await requireRole("ADMIN");
     const idea = await prisma.idea.findUniqueOrThrow({ where: { id: ideaId } });
+    if (idea.convertedEventId) throw new Error("Из этой идеи уже создано мероприятие.");
+    const type = (String(formData.get("type") || "LECTURE") as EventType) || "LECTURE";
 
     const event = await prisma.event.create({
       data: {
         title: idea.text.slice(0, 80),
-        type: "LECTURE",
+        type,
         stage: "IDEA",
         description: `${idea.text}\n\n_Создано из идеи, отправленной в разделе «Идеи»._`,
         createdById: user.id,

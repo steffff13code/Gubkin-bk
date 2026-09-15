@@ -6,6 +6,7 @@ import { Topbar } from "@/components/layout/topbar";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { getCurrentUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/permissions";
+import { countMyOverdueTasks } from "@/lib/queries/my-day";
 
 const golos = Golos_Text({
   subsets: ["latin", "cyrillic"],
@@ -21,6 +22,7 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   const admin = isAdmin(user);
+  const overdueCount = user ? await countMyOverdueTasks(user.id) : 0;
 
   return (
     <html lang="ru" className={golos.variable}>
@@ -32,7 +34,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <div className="relative z-10 flex min-h-screen">
           <Sidebar showSettings={admin} />
           <div className="flex min-w-0 flex-1 flex-col">
-            <Topbar user={user} />
+            <Topbar user={user} overdueCount={overdueCount} />
             <MobileNav showSettings={admin} />
             <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6">{children}</main>
           </div>

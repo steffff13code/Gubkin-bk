@@ -21,6 +21,7 @@ export type EventListItem = {
   timeSlot: string | null;
   venue: string | null;
   leadName: string | null;
+  leadId: string | null;
   guestName: string | null;
   tasksDone: number;
   tasksTotal: number;
@@ -68,6 +69,7 @@ export async function getEventsList(filters: EventFilters): Promise<EventListIte
       timeSlot: e.timeSlot,
       venue: e.venue,
       leadName: e.lead ? e.lead.firstName : null,
+      leadId: e.leadId,
       guestName: e.guestName,
       tasksDone,
       tasksTotal,

@@ -2,7 +2,7 @@ import type { EventDetail } from "@/lib/queries/event-detail";
 import { getPastRetros } from "@/lib/queries/event-detail";
 import { renderMarkdown } from "@/lib/markdown";
 import { displayName } from "@/lib/auth";
-import { GUEST_STATUS_LABELS } from "@/lib/labels";
+import { EVENT_TYPE_LABELS, GUEST_STATUS_LABELS } from "@/lib/labels";
 import { formatDate } from "@/lib/time";
 import { addEventMemberAction, removeEventMemberAction, updateOverviewAction } from "@/lib/actions/event-actions";
 
@@ -120,6 +120,24 @@ export async function OverviewTab({
             <div>
               <label className="mb-1 block text-xs text-muted">Название</label>
               <input name="title" defaultValue={event.title} className="w-full rounded border border-line bg-bg px-2 py-1.5 text-sm" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-muted">Тип мероприятия</label>
+              <select
+                name="type"
+                defaultValue={event.type}
+                disabled={event.tasks.length > 0}
+                className="w-full rounded border border-line bg-bg px-2 py-1.5 text-sm disabled:opacity-60"
+              >
+                {Object.entries(EVENT_TYPE_LABELS).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+              {event.tasks.length > 0 && (
+                <p className="mt-1 text-xs text-muted">Тип нельзя менять после разворачивания плана задач.</p>
+              )}
             </div>
             <div>
               <label className="mb-1 block text-xs text-muted">Описание (markdown)</label>

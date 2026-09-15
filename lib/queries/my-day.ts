@@ -1,6 +1,6 @@
 import type { EventStage } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { addDays, daysBetween, isOverdue } from "@/lib/time";
+import { addDays, daysBetween, isOverdue, startOfUtcDay } from "@/lib/time";
 
 export async function getMyTasks(userId: string) {
   const tasks = await prisma.task.findMany({
@@ -58,4 +58,15 @@ export async function getStuckEvents(now: Date = new Date()) {
     .filter((e) => daysBetween(e.stageChangedAt, now) >= 7)
     .filter((e) => !e.tasks.some((t) => t.status === "DONE" && t.completedAt && t.completedAt >= addDays(now, -7)))
     .map((e) => ({ id: e.id, title: e.title, stage: e.stage, leadName: e.lead?.firstName ?? null, ageDays: daysBetween(e.stageChangedAt, now) }));
+}
+
+export async function countMyOverdueTasks(userId: string): Promise<number> {
+  return prisma.task.count({
+    where: {
+      status: "TODO",
+      required: true,
+      dueDate: { lt: startOfUtcDay(new Date()) },
+      OR: [{ assigneeId: userId }, { secondAssigneeId: userId }]
+    }
+  });
 }

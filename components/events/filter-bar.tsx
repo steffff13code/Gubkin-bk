@@ -26,7 +26,15 @@ function Select({
   );
 }
 
-export function FilterBar({ leads, showMine }: { leads: LeadOption[]; showMine: boolean }) {
+export function FilterBar({
+  leads,
+  showMine,
+  showRejected
+}: {
+  leads: LeadOption[];
+  showMine: boolean;
+  showRejected: boolean;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -45,7 +53,7 @@ export function FilterBar({ leads, showMine }: { leads: LeadOption[]; showMine: 
     router.push(`${pathname}?${params.toString()}`);
   }
 
-  const hasFilters = ["type", "department", "lead", "mine", "q"].some((k) => searchParams.get(k));
+  const hasFilters = ["type", "department", "lead", "mine", "q", "rejected"].some((k) => searchParams.get(k));
 
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -88,13 +96,29 @@ export function FilterBar({ leads, showMine }: { leads: LeadOption[]; showMine: 
         </label>
       )}
 
+      {showRejected && (
+        <label className="flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-ink">
+          <input
+            type="checkbox"
+            checked={searchParams.get("rejected") === "1"}
+            onChange={(e) => update("rejected", e.target.checked ? "1" : "")}
+          />
+          Показать отклонённые
+        </label>
+      )}
+
       <div className="relative ml-auto">
         <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
         <input
           type="search"
           defaultValue={searchParams.get("q") ?? ""}
-          onChange={(e) => update("q", e.target.value)}
-          placeholder="Поиск..."
+          onKeyDown={(e) => {
+            if (e.key === "Enter") update("q", (e.target as HTMLInputElement).value);
+          }}
+          onBlur={(e) => {
+            if (e.target.value !== (searchParams.get("q") ?? "")) update("q", e.target.value);
+          }}
+          placeholder="Поиск по названию…"
           className="w-40 rounded-lg border border-line bg-surface py-1.5 pl-8 pr-2 text-sm text-ink placeholder:text-muted sm:w-56"
         />
       </div>

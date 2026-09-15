@@ -2,6 +2,7 @@ import type { TaskTemplate } from "@prisma/client";
 import {
   DEPARTMENT_LABELS,
   EVENT_TYPE_LABELS,
+  TASK_AUTO_COMPLETE_LABELS,
   TASK_GROUP_LABELS,
   TASK_TRIGGER_EVENT_LABELS,
   TASK_TRIGGER_TYPE_LABELS
@@ -132,6 +133,14 @@ function TemplateForm({
         {Object.entries(TASK_TRIGGER_EVENT_LABELS).map(([k, v]) => (
           <option key={k} value={k}>
             При закрытии → {v}
+          </option>
+        ))}
+      </select>
+      <select name="autoComplete" defaultValue={template?.autoComplete ?? ""} className="rounded border border-line bg-surface px-2 py-1">
+        <option value="">Закрывается вручную</option>
+        {Object.entries(TASK_AUTO_COMPLETE_LABELS).map(([k, v]) => (
+          <option key={k} value={k}>
+            Само: {v}
           </option>
         ))}
       </select>

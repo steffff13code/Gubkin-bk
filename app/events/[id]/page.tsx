@@ -12,6 +12,7 @@ import { TasksTab } from "@/components/events/detail/tasks-tab";
 import { FilesTab } from "@/components/events/detail/files-tab";
 import { ResultsTab } from "@/components/events/detail/results-tab";
 import { HistoryTab } from "@/components/events/detail/history-tab";
+import { deleteEventAction } from "@/lib/actions/event-actions";
 
 export default async function EventDetailPage({
   params,
@@ -50,10 +51,23 @@ export default async function EventDetailPage({
               {event.guestName ? ` · Гость: ${event.guestName}` : ""}
             </p>
           </div>
-          <div className="text-right">
+          <div className="flex flex-col items-end gap-2">
             <p className="text-sm font-bold text-ink">
               {tasksDone}/{event.tasks.length} задач
             </p>
+            {event.expectedAttendance != null && (
+              <p className="text-xs text-muted">Ожидается {event.expectedAttendance} чел.</p>
+            )}
+            {admin && (
+              <details>
+                <summary className="cursor-pointer text-xs text-muted hover:text-danger">Удалить мероприятие</summary>
+                <form action={deleteEventAction.bind(null, event.id)} className="mt-1">
+                  <button type="submit" className="rounded border border-danger/40 px-2 py-1 text-xs font-bold text-danger">
+                    Да, удалить безвозвратно
+                  </button>
+                </form>
+              </details>
+            )}
           </div>
         </div>
         <div className="mt-3">

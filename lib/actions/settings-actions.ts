@@ -6,6 +6,7 @@ import type {
   DepartmentPosition,
   EventType,
   Role,
+  TaskAutoComplete,
   TaskGroup,
   TaskTriggerEvent,
   TaskTriggerType
@@ -60,9 +61,15 @@ function templateDataFromForm(formData: FormData) {
   const offsetDaysStr = String(formData.get("offsetDays") || "");
   const triggerEvent = String(formData.get("triggerEvent") || "") || null;
   const firesTrigger = String(formData.get("firesTrigger") || "") || null;
+  const autoComplete = String(formData.get("autoComplete") || "") || null;
   const department = String(formData.get("department") || "") || null;
 
+  if (triggerType === "EVENT" && !triggerEvent) {
+    throw new Error("Для задачи «по событию» выберите, какое событие её запускает.");
+  }
+
   return {
+    autoComplete: autoComplete as TaskAutoComplete | null,
     eventType: String(formData.get("eventType") || "") as EventType,
     title: String(formData.get("title") || "").trim(),
     department: department as DepartmentCode | null,

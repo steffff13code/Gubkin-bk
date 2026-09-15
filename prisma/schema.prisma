@@ -205,6 +205,13 @@ enum TaskGroup {
   AFTER
 }
 
+// Задача закрывается сама, когда в карточке появляется соответствующее состояние
+// (принцип 1 ТЗ: статус считается из данных, а не из галочки).
+enum TaskAutoComplete {
+  PHOTO_REPORT_ATTACHED
+  RETRO_SAVED
+}
+
 model TaskTemplate {
   id        String    @id @default(cuid())
   eventType EventType
@@ -222,6 +229,7 @@ model TaskTemplate {
   // Закрытие задачи, созданной по этому шаблону, зажигает указанный триггер
   // для других задач этого мероприятия (см. раздел 8 ТЗ, п. 6).
   firesTrigger TaskTriggerEvent?
+  autoComplete TaskAutoComplete?
 
   group     TaskGroup
   sortOrder Int
@@ -254,6 +262,7 @@ model Task {
   offsetDays   Int?
   triggerEvent TaskTriggerEvent?
   firesTrigger TaskTriggerEvent?
+  autoComplete TaskAutoComplete?
 
   status   TaskStatus @default(TODO)
   required Boolean    @default(true)
