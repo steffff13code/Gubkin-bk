@@ -7,6 +7,7 @@ import { canManageEvent, PermissionError, requireRole, requireUser } from "@/lib
 import { checkStageEntry } from "@/lib/stages";
 import { fireTaskTrigger, generateTasksForEvent, recalcTasksOnDateChange } from "@/lib/tasks/service";
 import { startOfUtcDay } from "@/lib/time";
+import { notifyAdminsOfApproval } from "@/lib/notifications/approval";
 
 function goBack(eventId: string, tab: string, error?: string): never {
   const params = new URLSearchParams({ tab });
@@ -110,7 +111,7 @@ export async function sendToApprovalAction(eventId: string): Promise<void> {
       data: { stage: "APPROVAL", stageChangedAt: new Date() }
     });
     await prisma.activityLog.create({ data: { eventId, userId: user.id, action: "SENT_TO_APPROVAL" } });
-    // Уведомление администраторам — раздел 8, п. 5 (реализовано в модуле уведомлений, шаг 7).
+    await notifyAdminsOfApproval(eventId);
   });
 }
 
