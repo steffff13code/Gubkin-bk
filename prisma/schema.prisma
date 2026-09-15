@@ -1,0 +1,490 @@
+// Схема данных платформы организаторов Бизнес-клуба Губкина.
+// Комментарии — на русском, имена моделей и полей — на английском.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------
+// Пользователи и отделы
+// ---------------------------------------------------------------
+
+enum Role {
+  READER
+  MEMBER
+  LEAD
+  ADMIN
+}
+
+model User {
+  id          String   @id @default(cuid())
+  telegramId  String   @unique
+  username    String?
+  firstName   String
+  lastName    String?
+  photoUrl    String?
+  role        Role     @default(MEMBER)
+  botStarted  Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  departments        UserDepartment[]
+  ledEvents          Event[]           @relation("EventLead")
+  createdEvents      Event[]           @relation("EventCreatedBy")
+  approvedEvents     Event[]           @relation("EventApprovedBy")
+  eventMemberships   EventMember[]
+  assignedTasks      Task[]            @relation("TaskAssignee")
+  secondAssignedTasks Task[]           @relation("TaskSecondAssignee")
+  completedTasks     Task[]            @relation("TaskCompletedBy")
+  attachments        Attachment[]
+  retros             Retro[]
+  ideas              Idea[]
+  ideaVotes          IdeaVote[]
+  regulationsUpdated Regulation[]
+  regulationVersions RegulationVersion[]
+  activityLogs       ActivityLog[]
+  notifications      NotificationLog[]
+}
+
+enum DepartmentCode {
+  GUESTS
+  SECURITY
+  PR
+  VENUE_BOOKING
+  CONTENT
+  STAGE
+  INTENSIVES
+}
+
+model Department {
+  code  DepartmentCode @id
+  title String
+
+  members UserDepartment[]
+}
+
+enum DepartmentPosition {
+  HEAD
+  DEPUTY
+  MEMBER
+}
+
+model UserDepartment {
+  id             String             @id @default(cuid())
+  userId         String
+  departmentCode DepartmentCode
+  position       DepartmentPosition
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department Department @relation(fields: [departmentCode], references: [code], onDelete: Cascade)
+
+  @@unique([userId, departmentCode])
+}
+
+// ---------------------------------------------------------------
+// Мероприятия
+// ---------------------------------------------------------------
+
+enum EventType {
+  LECTURE
+  GAME
+  CASE
+  CONFERENCE
+  SERIES
+  INTENSIVE
+}
+
+enum EventStage {
+  IDEA
+  APPROVAL
+  PLANNING
+  IN_PROGRESS
+  DONE
+  CLOSED
+  REJECTED
+}
+
+enum GuestStatus {
+  NONE
+  CONTACTED
+  WINDOW_AGREED
+  SECURITY_SUBMITTED
+  SECURITY_APPROVED
+  SECURITY_REJECTED
+}
+
+model Event {
+  id          String     @id @default(cuid())
+  title       String
+  type        EventType
+  stage       EventStage @default(IDEA)
+  description String? // markdown — программа мероприятия
+
+  leadId String?
+  lead   User?   @relation("EventLead", fields: [leadId], references: [id])
+
+  targetDate DateTime?
+  dateFixed  Boolean   @default(false)
+  timeSlot   String?
+  venue      String?
+
+  guestName         String?
+  guestOrganization String?
+  guestTopic        String?
+  guestStatus       GuestStatus @default(NONE)
+
+  approvedById    String?
+  approvedBy      User?     @relation("EventApprovedBy", fields: [approvedById], references: [id])
+  approvedAt      DateTime?
+  approvalComment String?
+
+  driveFolderUrl String?
+
+  expectedAttendance Int?
+  actualAttendance   Int?
+
+  stageChangedAt DateTime @default(now())
+
+  createdById String
+  createdBy   User     @relation("EventCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  closedAt    DateTime?
+
+  members     EventMember[]
+  tasks       Task[]
+  attachments Attachment[]
+  retro       Retro?
+  activityLogs ActivityLog[]
+  registrations Registration[]
+  budget      Budget?
+  attendance  Attendance[]
+
+  @@index([stage])
+  @@index([type])
+  @@index([targetDate])
+}
+
+model EventMember {
+  id         String @id @default(cuid())
+  eventId    String
+  userId     String
+  roleInEvent String // свободный текст: «встречает гостя», «ведущий»
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+}
+
+// ---------------------------------------------------------------
+// Задачи и шаблоны
+// ---------------------------------------------------------------
+
+enum TaskTriggerType {
+  DATE_OFFSET
+  EVENT
+}
+
+enum TaskTriggerEvent {
+  DATE_FIXED
+  SECURITY_SUBMITTED
+  SECURITY_ANSWERED
+  REGISTRATION_CLOSED
+  EVENT_DONE
+}
+
+enum TaskGroup {
+  BEFORE
+  EVENT_DAY
+  AFTER
+}
+
+model TaskTemplate {
+  id        String    @id @default(cuid())
+  eventType EventType
+
+  title      String
+  department DepartmentCode?
+
+  triggerType  TaskTriggerType
+  offsetDays   Int? // отрицательные — до мероприятия; для EVENT — дней после события
+  triggerEvent TaskTriggerEvent?
+
+  required         Boolean @default(true)
+  needsTwoAssignees Boolean @default(false)
+
+  group     TaskGroup
+  sortOrder Int
+
+  tasks Task[]
+
+  @@index([eventType])
+}
+
+enum TaskStatus {
+  TODO
+  DONE
+  SKIPPED
+}
+
+model Task {
+  id         String  @id @default(cuid())
+  eventId    String
+  templateId String?
+
+  title       String
+  description String?
+  department  DepartmentCode?
+
+  assigneeId       String?
+  secondAssigneeId String?
+  dueDate          DateTime?
+
+  triggerType  TaskTriggerType
+  offsetDays   Int?
+  triggerEvent TaskTriggerEvent?
+
+  status   TaskStatus @default(TODO)
+  required Boolean    @default(true)
+
+  group     TaskGroup
+  sortOrder Int
+
+  completedAt      DateTime?
+  completedById    String?
+  overdueNotifiedAt DateTime?
+
+  event           Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  template        TaskTemplate? @relation(fields: [templateId], references: [id])
+  assignee        User?         @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  secondAssignee  User?         @relation("TaskSecondAssignee", fields: [secondAssigneeId], references: [id])
+  completedBy     User?         @relation("TaskCompletedBy", fields: [completedById], references: [id])
+  attachments     Attachment[]
+
+  @@index([eventId])
+  @@index([assigneeId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+// ---------------------------------------------------------------
+// Файлы, ретро, лог
+// ---------------------------------------------------------------
+
+enum AttachmentKind {
+  PROGRAM
+  MEMO
+  GUEST_LIST
+  PASS_PHOTO
+  POSTER
+  PHOTO_REPORT
+  VIDEO
+  OTHER
+}
+
+model Attachment {
+  id      String         @id @default(cuid())
+  eventId String
+  taskId  String?
+  kind    AttachmentKind
+  title   String
+  url     String
+
+  addedById String
+  createdAt DateTime @default(now())
+
+  event   Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  task    Task? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  addedBy User  @relation(fields: [addedById], references: [id])
+
+  @@index([eventId])
+}
+
+model Retro {
+  eventId        String   @id
+  wentWell       String
+  wentWrong      String
+  doDifferently  String
+  authorId       String
+  createdAt      DateTime @default(now())
+
+  event  Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  author User  @relation(fields: [authorId], references: [id])
+}
+
+// ---------------------------------------------------------------
+// Идеи
+// ---------------------------------------------------------------
+
+enum IdeaCategory {
+  IDEA
+  CRITIQUE
+  OTHER
+}
+
+enum IdeaStatus {
+  NEW
+  DISCUSSED
+  ACCEPTED
+  REJECTED
+}
+
+model Idea {
+  id     String       @id @default(cuid())
+  text   String
+  category IdeaCategory
+
+  // При анонимной отправке authorId НЕ записывается — поле остаётся null.
+  authorId String?
+  author   User?  @relation(fields: [authorId], references: [id])
+
+  targetDepartment DepartmentCode?
+
+  status        IdeaStatus @default(NEW)
+  adminComment  String?
+  convertedEventId String?
+
+  createdAt DateTime @default(now())
+
+  votes IdeaVote[]
+
+  @@index([status])
+}
+
+model IdeaVote {
+  id     String @id @default(cuid())
+  ideaId String
+  userId String
+
+  idea Idea @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([ideaId, userId])
+}
+
+// ---------------------------------------------------------------
+// Регламенты
+// ---------------------------------------------------------------
+
+model Regulation {
+  id         String          @id @default(cuid())
+  slug       String          @unique
+  title      String
+  department DepartmentCode?
+  body       String // markdown
+  sortOrder  Int
+
+  updatedById String
+  updatedBy   User     @relation(fields: [updatedById], references: [id])
+  updatedAt   DateTime @updatedAt
+
+  versions RegulationVersion[]
+}
+
+model RegulationVersion {
+  id           String   @id @default(cuid())
+  regulationId String
+  body         String
+  editedById   String
+  createdAt    DateTime @default(now())
+
+  regulation Regulation @relation(fields: [regulationId], references: [id], onDelete: Cascade)
+  editedBy   User       @relation(fields: [editedById], references: [id])
+
+  @@index([regulationId])
+}
+
+// ---------------------------------------------------------------
+// Служебное: лог и уведомления
+// ---------------------------------------------------------------
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  eventId   String?
+  userId    String?
+  action    String
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  event Event? @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  user  User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([eventId])
+}
+
+model NotificationLog {
+  id        String   @id @default(cuid())
+  userId    String
+  kind      String
+  dedupeKey String   @unique
+  sentAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------
+// Заготовки под будущее (раздел 3 ТЗ) — таблицы есть, интерфейса нет.
+// ---------------------------------------------------------------
+
+model Contact {
+  id           String   @id @default(cuid())
+  name         String
+  organization String?
+  role         String?
+  phone        String?
+  email        String?
+  telegram     String?
+  notes        String?
+  createdAt    DateTime @default(now())
+}
+
+model Budget {
+  id      String @id @default(cuid())
+  eventId String @unique
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  items BudgetItem[]
+}
+
+model BudgetItem {
+  id       String  @id @default(cuid())
+  budgetId String
+  title    String
+  amount   Decimal @db.Decimal(12, 2)
+  isIncome Boolean @default(false)
+  comment  String?
+
+  budget Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+}
+
+model Registration {
+  id        String   @id @default(cuid())
+  eventId   String
+  fullName  String
+  email     String?
+  phone     String?
+  createdAt DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+}
+
+model Attendance {
+  id        String  @id @default(cuid())
+  eventId   String
+  fullName  String
+  attended  Boolean @default(false)
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+}
