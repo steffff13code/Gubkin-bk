@@ -5,12 +5,15 @@ import { prisma } from "@/lib/db";
 import { canManageEvent, PermissionError, requireUser } from "@/lib/permissions";
 import { fireTaskTrigger } from "@/lib/tasks/service";
 
-async function runOrRedirect(eventId: string, fn: () => Promise<void>): Promise<never> {
+async function runOrRedirect(eventId: string, fn: () => Promise<void>, returnTo?: string): Promise<never> {
   let error: string | null = null;
   try {
     await fn();
   } catch (e) {
     error = e instanceof Error ? e.message : "Не удалось выполнить действие.";
+  }
+  if (returnTo && !error) {
+    redirect(returnTo);
   }
   const params = new URLSearchParams({ tab: "tasks" });
   if (error) params.set("error", error);
@@ -23,30 +26,35 @@ async function loadTaskWithEvent(taskId: string) {
   return task;
 }
 
-export async function toggleTaskAction(taskId: string, done: boolean): Promise<void> {
+export async function toggleTaskAction(taskId: string, done: boolean, formData?: FormData): Promise<void> {
   const task = await loadTaskWithEvent(taskId);
-  await runOrRedirect(task.eventId, async () => {
-    const user = await requireUser();
-    const isAssignee = task.assigneeId === user.id || task.secondAssigneeId === user.id;
-    if (!isAssignee && !canManageEvent(user, task.event)) {
-      throw new PermissionError("Отметить эту задачу может только исполнитель, лид мероприятия или администратор.");
-    }
-
-    if (done) {
-      await prisma.task.update({
-        where: { id: taskId },
-        data: { status: "DONE", completedAt: new Date(), completedById: user.id }
-      });
-      if (task.firesTrigger) {
-        await fireTaskTrigger(task.eventId, task.firesTrigger, new Date());
+  const returnTo = formData ? String(formData.get("returnTo") || "") || undefined : undefined;
+  await runOrRedirect(
+    task.eventId,
+    async () => {
+      const user = await requireUser();
+      const isAssignee = task.assigneeId === user.id || task.secondAssigneeId === user.id;
+      if (!isAssignee && !canManageEvent(user, task.event)) {
+        throw new PermissionError("Отметить эту задачу может только исполнитель, лид мероприятия или администратор.");
       }
-    } else {
-      await prisma.task.update({
-        where: { id: taskId },
-        data: { status: "TODO", completedAt: null, completedById: null }
-      });
-    }
-  });
+
+      if (done) {
+        await prisma.task.update({
+          where: { id: taskId },
+          data: { status: "DONE", completedAt: new Date(), completedById: user.id }
+        });
+        if (task.firesTrigger) {
+          await fireTaskTrigger(task.eventId, task.firesTrigger, new Date());
+        }
+      } else {
+        await prisma.task.update({
+          where: { id: taskId },
+          data: { status: "TODO", completedAt: null, completedById: null }
+        });
+      }
+    },
+    returnTo
+  );
 }
 
 export async function skipTaskAction(taskId: string): Promise<void> {
