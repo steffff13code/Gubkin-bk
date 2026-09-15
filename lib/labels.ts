@@ -1,13 +1,16 @@
 import type {
   AttachmentKind,
   DepartmentCode,
+  DepartmentPosition,
   EventStage,
   EventType,
   GuestStatus,
   IdeaCategory,
   IdeaStatus,
   Role,
-  TaskGroup
+  TaskGroup,
+  TaskTriggerEvent,
+  TaskTriggerType
 } from "@prisma/client";
 
 export const EVENT_TYPE_LABELS: Record<EventType, string> = {
@@ -74,6 +77,25 @@ export const IDEA_STATUS_LABELS: Record<IdeaStatus, string> = {
   DISCUSSED: "Обсуждается",
   ACCEPTED: "Принята",
   REJECTED: "Отклонена"
+};
+
+export const DEPARTMENT_POSITION_LABELS: Record<DepartmentPosition, string> = {
+  HEAD: "Руководитель",
+  DEPUTY: "Заместитель",
+  MEMBER: "Участник"
+};
+
+export const TASK_TRIGGER_TYPE_LABELS: Record<TaskTriggerType, string> = {
+  DATE_OFFSET: "От даты мероприятия",
+  EVENT: "По событию"
+};
+
+export const TASK_TRIGGER_EVENT_LABELS: Record<TaskTriggerEvent, string> = {
+  DATE_FIXED: "Дата зафиксирована",
+  SECURITY_SUBMITTED: "Заявка в ЦБ подана",
+  SECURITY_ANSWERED: "ЦБ ответил",
+  REGISTRATION_CLOSED: "Регистрация закрыта",
+  EVENT_DONE: "Мероприятие проведено"
 };
 
 export const ATTACHMENT_KIND_LABELS: Record<AttachmentKind, string> = {
