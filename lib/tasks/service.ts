@@ -6,6 +6,7 @@ import {
   recalcDueDatesOnDateChange,
   type DepartmentAssignments
 } from "@/lib/tasks/generate";
+import { startOfUtcDay } from "@/lib/time";
 
 async function loadDepartmentAssignments(): Promise<DepartmentAssignments> {
   const rows = await prisma.userDepartment.findMany({
@@ -73,7 +74,7 @@ export async function fireTaskTrigger(eventId: string, triggerEvent: TaskTrigger
   const pending = await prisma.task.findMany({
     where: { eventId, triggerEvent, dueDate: null }
   });
-  const updates = applyTriggerDueDates(pending, triggerEvent, firedAt);
+  const updates = applyTriggerDueDates(pending, triggerEvent, startOfUtcDay(firedAt));
   if (updates.length === 0) return;
 
   await prisma.$transaction(

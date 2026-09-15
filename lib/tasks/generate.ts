@@ -1,5 +1,5 @@
 import type { DepartmentCode, TaskGroup, TaskTriggerEvent, TaskTriggerType } from "@prisma/client";
-import { addDays } from "@/lib/time";
+import { addDays, startOfUtcDay } from "@/lib/time";
 
 // Чистая логика генерации плана задач по шаблону — без обращений к БД,
 // чтобы можно было покрыть юнит-тестами без поднятой Postgres.
@@ -70,7 +70,7 @@ export function initialDueDate(
     return addDays(targetDate, template.offsetDays ?? 0);
   }
   if (template.triggerEvent === "DATE_FIXED") {
-    return addDays(now, template.offsetDays ?? 0);
+    return addDays(startOfUtcDay(now), template.offsetDays ?? 0);
   }
   return null;
 }
