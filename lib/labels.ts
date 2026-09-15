@@ -1,4 +1,14 @@
-import type { AttachmentKind, DepartmentCode, EventStage, EventType, GuestStatus, Role, TaskGroup } from "@prisma/client";
+import type {
+  AttachmentKind,
+  DepartmentCode,
+  EventStage,
+  EventType,
+  GuestStatus,
+  IdeaCategory,
+  IdeaStatus,
+  Role,
+  TaskGroup
+} from "@prisma/client";
 
 export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   LECTURE: "Лекция",
@@ -51,6 +61,19 @@ export const TASK_GROUP_LABELS: Record<TaskGroup, string> = {
   BEFORE: "До мероприятия",
   EVENT_DAY: "День мероприятия",
   AFTER: "После"
+};
+
+export const IDEA_CATEGORY_LABELS: Record<IdeaCategory, string> = {
+  IDEA: "Идея",
+  CRITIQUE: "Критика",
+  OTHER: "Другое"
+};
+
+export const IDEA_STATUS_LABELS: Record<IdeaStatus, string> = {
+  NEW: "Новая",
+  DISCUSSED: "Обсуждается",
+  ACCEPTED: "Принята",
+  REJECTED: "Отклонена"
 };
 
 export const ATTACHMENT_KIND_LABELS: Record<AttachmentKind, string> = {
