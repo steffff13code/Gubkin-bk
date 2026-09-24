@@ -73,21 +73,24 @@ export async function deleteIdeaAction(ideaId: string): Promise<void> {
 
 export async function convertIdeaToEventAction(ideaId: string, formData: FormData): Promise<void> {
   await runOrRedirect(async () => {
-    const user = await requireRole("ADMIN");
+    const user = await requireRole("LEAD");
     const idea = await prisma.idea.findUniqueOrThrow({ where: { id: ideaId } });
     if (idea.convertedEventId) throw new Error("Из этой идеи уже создано мероприятие.");
     const type = (String(formData.get("type") || "LECTURE") as EventType) || "LECTURE";
+    const title = String(formData.get("title") || "").trim() || idea.text.slice(0, 80);
 
     const event = await prisma.event.create({
       data: {
-        title: idea.text.slice(0, 80),
+        title,
         type,
         stage: "IDEA",
         description: `${idea.text}\n\n_Создано из идеи, отправленной в разделе «Идеи»._`,
+        leadId: user.id,
         createdById: user.id,
         stageChangedAt: new Date()
       }
     });
+    await prisma.activityLog.create({ data: { eventId: event.id, userId: user.id, action: "CREATED" } });
 
     await prisma.idea.update({ where: { id: ideaId }, data: { convertedEventId: event.id, status: "ACCEPTED" } });
     return `/events/${event.id}`;

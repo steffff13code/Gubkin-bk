@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { getCurrentUser, displayName } from "@/lib/auth";
 import { isLeadOrAdmin } from "@/lib/permissions";
 import { EVENT_TYPE_LABELS } from "@/lib/labels";
@@ -6,6 +7,7 @@ import { createEventAction } from "@/lib/actions/event-actions";
 
 export default async function NewEventPage({ searchParams }: { searchParams: { error?: string } }) {
   const user = await getCurrentUser();
+  if (!user) redirect("/login?next=/events/new");
 
   if (!isLeadOrAdmin(user)) {
     return (

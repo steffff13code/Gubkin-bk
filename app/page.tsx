@@ -74,7 +74,7 @@ export default async function HomePage({
       {view === "calendar" && (
         <CalendarView events={events} year={year} month={month - 1} searchParams={searchParams} />
       )}
-      {view !== "list" && view !== "calendar" && <BoardView events={events} />}
+      {view !== "list" && view !== "calendar" && <BoardView events={events} canCreate={isLeadOrAdmin(user)} />}
     </div>
   );
 }

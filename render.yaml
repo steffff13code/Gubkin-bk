@@ -23,7 +23,8 @@ services:
         sync: false
       - key: TELEGRAM_BOT_USERNAME
         sync: false
-      - key: ADMIN_TELEGRAM_IDS
+      # Стартовые пароли ролей (необязательно; потом меняются в «Настройки → Доступ и запуск»):
+      - key: ADMIN_PASSWORD
         sync: false
 
 databases:

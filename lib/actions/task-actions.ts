@@ -12,7 +12,7 @@ async function runOrRedirect(eventId: string, fn: () => Promise<void>, returnTo?
   } catch (e) {
     error = e instanceof Error ? e.message : "Не удалось выполнить действие.";
   }
-  if (returnTo && !error) {
+  if (returnTo && !error && returnTo.startsWith("/") && !returnTo.startsWith("//")) {
     redirect(returnTo);
   }
   const params = new URLSearchParams({ tab: "tasks" });
@@ -78,16 +78,20 @@ export async function skipTaskAction(taskId: string): Promise<void> {
   });
 }
 
-export async function assignToMeAction(taskId: string): Promise<void> {
+export async function assignToMeAction(taskId: string, formData?: FormData): Promise<void> {
   const task = await loadTaskWithEvent(taskId);
+  const returnTo = formData ? String(formData.get("returnTo") || "") || undefined : undefined;
   await runOrRedirect(task.eventId, async () => {
     const user = await requireUser();
     if (task.status !== "TODO") throw new Error("Закрытую задачу нельзя взять на себя.");
+    if (task.assigneeId && task.assigneeId !== user.id && !canManageEvent(user, task.event)) {
+      throw new PermissionError("У задачи уже есть исполнитель. Переназначить её может лид мероприятия или администратор.");
+    }
     await prisma.task.update({ where: { id: taskId }, data: { assigneeId: user.id } });
     await prisma.activityLog.create({
       data: { eventId: task.eventId, userId: user.id, action: "TASK_TAKEN", payload: { title: task.title } }
     });
-  });
+  }, returnTo);
 }
 
 export async function updateTaskAction(taskId: string, formData: FormData): Promise<void> {

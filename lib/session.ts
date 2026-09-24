@@ -45,3 +45,21 @@ export function verifySessionCookie(token: string | undefined | null): string | 
     return null;
   }
 }
+
+/**
+ * Код для привязки Telegram к аккаунту: t.me/<бот>?start=<код>. Telegram разрешает
+ * в payload до 64 символов [A-Za-z0-9_-]; cuid (~25) + "_" + 16 символов подписи.
+ */
+export function createTelegramLinkToken(userId: string): string {
+  return `${userId}_${sign(`tg-link:${userId}`).replace(/[^A-Za-z0-9]/g, "").slice(0, 16)}`;
+}
+
+export function verifyTelegramLinkToken(token: string): string | null {
+  const idx = token.lastIndexOf("_");
+  if (idx <= 0) return null;
+  const userId = token.slice(0, idx);
+  const expected = createTelegramLinkToken(userId);
+  const a = Buffer.from(token);
+  const b = Buffer.from(expected);
+  return a.length === b.length && crypto.timingSafeEqual(a, b) ? userId : null;
+}

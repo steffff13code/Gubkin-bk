@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { BOARD_STAGES, EVENT_STAGE_DOT_CLASSES, EVENT_STAGE_LABELS } from "@/lib/labels";
 import type { EventListItem } from "@/lib/queries/events";
 import { EventCard } from "@/components/events/event-card";
@@ -14,7 +15,7 @@ const EMPTY_STATE: Record<EventStage, { icon: (p: { className?: string }) => Rea
   REJECTED: { icon: DocIcon, title: "Ничего отклонённого", hint: "" }
 };
 
-export function BoardView({ events }: { events: EventListItem[] }) {
+export function BoardView({ events, canCreate = false }: { events: EventListItem[]; canCreate?: boolean }) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
       {BOARD_STAGES.map((stage) => {
@@ -29,6 +30,15 @@ export function BoardView({ events }: { events: EventListItem[] }) {
                 <span className="truncate">{EVENT_STAGE_LABELS[stage]}</span>
               </h2>
               <span className="ml-auto shrink-0 text-xs text-muted">{items.length}</span>
+              {stage === "IDEA" && canCreate && (
+                <Link
+                  href="/events/new"
+                  title="Новое мероприятие"
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-gold/15 text-sm font-bold text-gold hover:bg-gold hover:text-bg"
+                >
+                  +
+                </Link>
+              )}
             </div>
             <div className="space-y-2">
               {items.map((e) => (
@@ -39,6 +49,11 @@ export function BoardView({ events }: { events: EventListItem[] }) {
                   <EmptyIcon className="h-8 w-8 text-muted/50" />
                   <p className="text-sm text-muted">{empty.title}</p>
                   {empty.hint && <p className="text-xs text-muted/70">{empty.hint}</p>}
+                  {stage === "IDEA" && (
+                    <Link href="/ideas" className="text-xs font-bold text-gold hover:underline">
+                      Банк идей клуба →
+                    </Link>
+                  )}
                 </div>
               )}
             </div>

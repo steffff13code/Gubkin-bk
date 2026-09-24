@@ -2,11 +2,20 @@ import Link from "next/link";
 import type { CurrentUser } from "@/lib/auth";
 import { displayName } from "@/lib/auth";
 import { logoutAction } from "@/lib/actions/auth-actions";
+import { ROLE_LABELS } from "@/lib/labels";
 import { Avatar } from "@/components/avatar";
 import { BellIcon, ChevronDownIcon, SearchIcon } from "@/components/icons";
 
-export function Topbar({ user, overdueCount }: { user: CurrentUser | null; overdueCount: number }) {
-  const botUsername = process.env.TELEGRAM_BOT_USERNAME;
+export function Topbar({
+  user,
+  overdueCount,
+  defaultPasswordRoles
+}: {
+  user: CurrentUser | null;
+  overdueCount: number;
+  defaultPasswordRoles: string[];
+}) {
+  const botConfigured = !!process.env.TELEGRAM_BOT_USERNAME;
 
   return (
     <>
@@ -43,8 +52,12 @@ export function Topbar({ user, overdueCount }: { user: CurrentUser | null; overd
                   <span className="hidden text-sm text-ink sm:inline">{user.firstName}</span>
                   <ChevronDownIcon className="h-3.5 w-3.5 text-muted" />
                 </summary>
-                <div className="absolute right-0 top-full z-10 mt-2 w-52 rounded-lg border border-line bg-surface p-2 shadow-glow">
-                  <p className="px-2 py-1 text-xs text-muted">{displayName(user)}</p>
+                <div className="absolute right-0 top-full z-20 mt-2 w-56 rounded-lg border border-line bg-surface p-2 shadow-glow">
+                  <p className="px-2 pt-1 text-sm font-bold text-ink">{displayName(user)}</p>
+                  <p className="px-2 pb-2 text-xs text-muted">{ROLE_LABELS[user.role]}</p>
+                  <Link href="/profile" className="block rounded px-2 py-1.5 text-sm text-muted hover:bg-surface2 hover:text-ink">
+                    Профиль и уведомления
+                  </Link>
                   <form action={logoutAction}>
                     <button
                       type="submit"
@@ -57,19 +70,30 @@ export function Topbar({ user, overdueCount }: { user: CurrentUser | null; overd
               </details>
             </>
           ) : (
-            <Link href="/login" className="rounded-lg border border-line px-3 py-1.5 text-sm font-bold text-ink hover:border-gold">
-              Войти через Telegram
+            <Link href="/login" className="rounded-lg bg-gold px-4 py-1.5 text-sm font-bold text-bg hover:bg-gold/90">
+              Войти
             </Link>
           )}
         </div>
       </div>
 
-      {user && !user.botStarted && botUsername && (
+      {user?.role === "ADMIN" && defaultPasswordRoles.length > 0 && (
+        <div className="border-b border-danger/30 bg-danger/10 px-4 py-2 text-center text-sm text-ink">
+          У ролей ({defaultPasswordRoles.map((r) => ROLE_LABELS[r as keyof typeof ROLE_LABELS].toLowerCase()).join(", ")}) стоят
+          пароли по умолчанию.{" "}
+          <Link href="/settings?tab=access" className="font-bold underline">
+            Смените их в настройках
+          </Link>{" "}
+          перед тем, как раздавать доступ.
+        </div>
+      )}
+
+      {user && !user.botStarted && botConfigured && (
         <div className="border-b border-gold/30 bg-gold/10 px-4 py-2 text-center text-sm text-ink">
-          Чтобы получать напоминания в Telegram, один раз нажмите{" "}
-          <a href={`https://t.me/${botUsername}`} target="_blank" rel="noreferrer" className="font-bold underline">
-            /start у бота
-          </a>
+          Чтобы получать напоминания в Telegram,{" "}
+          <Link href="/profile" className="font-bold underline">
+            подключите бота в профиле
+          </Link>
           .
         </div>
       )}

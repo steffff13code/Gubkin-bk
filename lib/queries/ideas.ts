@@ -15,6 +15,7 @@ export async function getIdeasList(currentUserId: string | null) {
     status: i.status,
     adminComment: i.adminComment,
     convertedEventId: i.convertedEventId,
+    isDemo: i.isDemo,
     createdAt: i.createdAt,
     voteCount: i.votes.length,
     hasVoted: currentUserId ? i.votes.some((v) => v.userId === currentUserId) : false

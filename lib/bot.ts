@@ -1,5 +1,6 @@
 import { Bot } from "grammy";
 import { prisma } from "@/lib/db";
+import { verifyTelegramLinkToken } from "@/lib/session";
 
 let botInstance: Bot | null = null;
 
@@ -14,19 +15,36 @@ export function getBot(): Bot | null {
   botInstance.command("start", async (ctx) => {
     const telegramId = ctx.from?.id ? String(ctx.from.id) : null;
     if (!telegramId) return;
-
-    const firstName = ctx.from?.first_name || "Без имени";
-    const lastName = ctx.from?.last_name ?? null;
     const username = ctx.from?.username ?? null;
+    const payload = typeof ctx.match === "string" ? ctx.match.trim() : "";
 
-    await prisma.user.upsert({
-      where: { telegramId },
-      create: { telegramId, firstName, lastName, username, role: "MEMBER", botStarted: true },
-      update: { botStarted: true, firstName, lastName, username }
-    });
+    // Привязка по персональной ссылке из профиля на сайте.
+    const userId = payload ? verifyTelegramLinkToken(payload) : null;
+    if (userId) {
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        await ctx.reply("Не нашёл ваш аккаунт. Откройте профиль на сайте и нажмите «Подключить Telegram» ещё раз.");
+        return;
+      }
+      // Один Telegram — один человек: отвязываем от прежнего аккаунта, если был.
+      await prisma.user.updateMany({ where: { telegramId, NOT: { id: userId } }, data: { telegramId: null, botStarted: false } });
+      await prisma.user.update({ where: { id: userId }, data: { telegramId, username, botStarted: true } });
+      await ctx.reply(
+        `Готово, ${user.firstName}! Теперь сюда будут приходить напоминания о ваших задачах и мероприятиях Бизнес-клуба Губкина.`
+      );
+      return;
+    }
+
+    // Уже привязан — просто включаем уведомления.
+    const linked = await prisma.user.findUnique({ where: { telegramId } });
+    if (linked) {
+      await prisma.user.update({ where: { id: linked.id }, data: { botStarted: true, username } });
+      await ctx.reply(`Уведомления включены, ${linked.firstName}.`);
+      return;
+    }
 
     await ctx.reply(
-      "Готово! Теперь вы будете получать напоминания о задачах и мероприятиях Бизнес-клуба Губкина."
+      "Чтобы получать напоминания, войдите на сайт платформы, откройте «Профиль» и нажмите «Подключить Telegram»."
     );
   });
 

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import clsx from "clsx";
 import type { EventDetail } from "@/lib/queries/event-detail";
 import { DEPARTMENT_LABELS, TASK_GROUP_LABELS } from "@/lib/labels";
@@ -45,8 +46,13 @@ export function TasksTab({
             <div className="space-y-4">
               {Array.from(byDept.entries()).map(([dept, tasks]) => (
                 <div key={dept} className="rounded border border-line bg-surface">
-                  <div className="border-b border-line px-3 py-1.5 text-xs font-bold text-muted">
-                    {dept === "_" ? "Без отдела" : DEPARTMENT_LABELS[dept as keyof typeof DEPARTMENT_LABELS]}
+                  <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-1.5 text-xs font-bold text-muted">
+                    <span>{dept === "_" ? "Без отдела" : DEPARTMENT_LABELS[dept as keyof typeof DEPARTMENT_LABELS]}</span>
+                    {dept !== "_" && (
+                      <Link href={`/regulations#${dept}`} className="font-normal text-muted hover:text-gold">
+                        регламент отдела →
+                      </Link>
+                    )}
                   </div>
                   <ul className="divide-y divide-line">
                     {tasks.map((t) => (

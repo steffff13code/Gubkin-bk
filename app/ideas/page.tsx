@@ -1,5 +1,5 @@
 import { getCurrentUser } from "@/lib/auth";
-import { isAdmin } from "@/lib/permissions";
+import { isAdmin, isLeadOrAdmin } from "@/lib/permissions";
 import { getIdeasList } from "@/lib/queries/ideas";
 import Link from "next/link";
 import { DEPARTMENT_LABELS, EVENT_TYPE_LABELS, IDEA_CATEGORY_LABELS, IDEA_STATUS_LABELS } from "@/lib/labels";
@@ -17,10 +17,17 @@ export default async function IdeasPage({ searchParams }: { searchParams: { erro
   const user = await getCurrentUser();
   const ideas = await getIdeasList(user?.id ?? null);
   const admin = isAdmin(user);
+  const canConvert = isLeadOrAdmin(user);
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-xl font-bold text-ink">Идеи и критика</h1>
+      <div>
+        <h1 className="text-xl font-bold text-ink">Идеи и критика</h1>
+        <p className="mt-1 text-sm text-muted">
+          Банк идей клуба: любой может предложить мероприятие, улучшение или честную критику — можно анонимно.
+          Голосуйте за то, что нравится. {canConvert ? "Лучшие идеи вы можете сразу превратить в мероприятие — оно появится в Потоке в колонке «Идея», а вы станете его лидом." : "Лучшие идеи руководители превращают в мероприятия в Потоке."}
+        </p>
+      </div>
 
       {searchParams.error && (
         <p className="rounded border border-danger/30 bg-danger/5 p-3 text-sm text-danger">{searchParams.error}</p>
@@ -83,7 +90,7 @@ export default async function IdeasPage({ searchParams }: { searchParams: { erro
                 </form>
               ) : (
                 <Link
-                  href="/login"
+                  href="/login?next=/ideas"
                   title="Войдите, чтобы голосовать"
                   className="shrink-0 rounded border border-line px-2 py-1 text-xs font-bold text-muted"
                 >
@@ -92,6 +99,11 @@ export default async function IdeasPage({ searchParams }: { searchParams: { erro
               )}
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
+              {idea.isDemo && (
+                <span className="rounded bg-gold/15 px-1.5 py-0.5 text-[10px] font-bold text-gold" title="Пример из демо-данных, удаляется в Настройках">
+                  пример
+                </span>
+              )}
               <span>{IDEA_CATEGORY_LABELS[idea.category]}</span>
               <span>· {idea.authorName ?? "Анонимно"}</span>
               <span>· {formatDate(idea.createdAt)}</span>
@@ -102,9 +114,48 @@ export default async function IdeasPage({ searchParams }: { searchParams: { erro
               <p className="mt-2 rounded bg-bg px-2 py-1 text-xs text-muted">Комментарий: {idea.adminComment}</p>
             )}
 
+            {idea.convertedEventId ? (
+              <Link
+                href={`/events/${idea.convertedEventId}`}
+                className="mt-3 inline-flex items-center gap-1 rounded border border-success/40 px-2 py-1 text-xs font-bold text-success hover:bg-success/10"
+              >
+                Мероприятие создано — открыть →
+              </Link>
+            ) : (
+              canConvert && (
+                <details className="mt-3">
+                  <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded bg-gold px-2.5 py-1 text-xs font-bold text-bg hover:bg-gold/90">
+                    + Сделать мероприятием
+                  </summary>
+                  <form
+                    action={convertIdeaToEventAction.bind(null, idea.id)}
+                    className="mt-2 grid gap-2 rounded border border-line bg-bg p-3 sm:grid-cols-[1fr_auto_auto]"
+                  >
+                    <input
+                      name="title"
+                      defaultValue={idea.text.slice(0, 80)}
+                      required
+                      placeholder="Название мероприятия"
+                      className="rounded border border-line bg-surface px-2 py-1.5 text-sm text-ink"
+                    />
+                    <select name="type" className="rounded border border-line bg-surface px-2 py-1.5 text-sm text-ink">
+                      {Object.entries(EVENT_TYPE_LABELS).map(([k, v]) => (
+                        <option key={k} value={k}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                    <button type="submit" className="rounded bg-gold px-3 py-1.5 text-sm font-bold text-bg hover:bg-gold/90">
+                      Создать
+                    </button>
+                  </form>
+                </details>
+              )
+            )}
+
             {admin && (
               <details className="mt-2">
-                <summary className="cursor-pointer text-xs font-bold text-ink">Управление</summary>
+                <summary className="cursor-pointer text-xs font-bold text-muted hover:text-ink">Статус, комментарий, удаление</summary>
                 <form action={setIdeaStatusAction.bind(null, idea.id)} className="mt-2 flex flex-wrap gap-2">
                   <select name="status" defaultValue={idea.status} className="rounded border border-line bg-bg px-2 py-1 text-xs">
                     {Object.entries(IDEA_STATUS_LABELS).map(([k, v]) => (
@@ -128,24 +179,6 @@ export default async function IdeasPage({ searchParams }: { searchParams: { erro
                     Удалить идею
                   </button>
                 </form>
-                {idea.convertedEventId ? (
-                  <Link href={`/events/${idea.convertedEventId}`} className="mt-2 inline-block text-xs font-bold text-ink underline">
-                    Открыть созданное мероприятие
-                  </Link>
-                ) : (
-                  <form action={convertIdeaToEventAction.bind(null, idea.id)} className="mt-2 flex items-center gap-2">
-                    <select name="type" className="rounded border border-line bg-bg px-2 py-1 text-xs">
-                      {Object.entries(EVENT_TYPE_LABELS).map(([k, v]) => (
-                        <option key={k} value={k}>
-                          {v}
-                        </option>
-                      ))}
-                    </select>
-                    <button type="submit" className="text-xs font-bold text-ink underline">
-                      Сделать мероприятием
-                    </button>
-                  </form>
-                )}
               </details>
             )}
           </div>

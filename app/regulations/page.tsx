@@ -53,7 +53,7 @@ export default async function RegulationsPage() {
         {Array.from(groups.entries()).map(([key, items]) => {
           const Icon = GROUP_ICONS[key] ?? DocIcon;
           return (
-            <section key={key}>
+            <section key={key} id={key === "_" ? "general" : key} className="scroll-mt-20">
               <h2 className="mb-2 flex items-center gap-2 text-sm font-bold text-accent">
                 <Icon className="h-4 w-4" />
                 {key === "_" ? "Общее" : DEPARTMENT_LABELS[key as DepartmentCode]}

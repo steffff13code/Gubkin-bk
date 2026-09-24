@@ -62,7 +62,7 @@ export async function notifyOnce(
   }
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user?.botStarted) return { ...delivery, result: "no_bot" };
+  if (!user?.botStarted || !user.telegramId) return { ...delivery, result: "no_bot" };
 
   const sent = await sendTelegramMessage(user.telegramId, text);
   if (!sent) return delivery;

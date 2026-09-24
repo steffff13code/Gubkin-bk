@@ -23,7 +23,7 @@ enum Role {
 
 model User {
   id          String   @id @default(cuid())
-  telegramId  String   @unique
+  telegramId  String?  @unique // привязывается из профиля для уведомлений, для входа не нужен
   username    String?
   firstName   String
   lastName    String?
@@ -31,6 +31,7 @@ model User {
   role        Role     @default(MEMBER)
   botStarted  Boolean  @default(false)
   isActive    Boolean  @default(true)
+  isDemo      Boolean  @default(false) // демо-данные сида, удаляются одной кнопкой в настройках
   createdAt   DateTime @default(now())
 
   departments        UserDepartment[]
@@ -149,6 +150,7 @@ model Event {
   actualAttendance   Int?
 
   stageChangedAt DateTime @default(now())
+  isDemo         Boolean  @default(false)
 
   createdById String
   createdBy   User     @relation("EventCreatedBy", fields: [createdById], references: [id])
@@ -364,6 +366,7 @@ model Idea {
   status        IdeaStatus @default(NEW)
   adminComment  String?
   convertedEventId String?
+  isDemo           Boolean @default(false)
 
   createdAt DateTime @default(now())
 
@@ -431,6 +434,13 @@ model ActivityLog {
   user  User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([eventId])
+}
+
+// Настройки приложения: хеши паролей ролей, служебные флаги.
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }
 
 model NotificationLog {
