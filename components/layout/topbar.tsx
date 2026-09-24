@@ -1,11 +1,14 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { CurrentUser } from "@/lib/auth";
 import { displayName } from "@/lib/auth";
 import { logoutAction } from "@/lib/actions/auth-actions";
 import { ROLE_LABELS } from "@/lib/labels";
 import { Avatar } from "@/components/avatar";
-import { BellIcon, ChevronDownIcon, SearchIcon } from "@/components/icons";
+import { ChevronDownIcon } from "@/components/icons";
+import { NavTabs } from "@/components/layout/nav-tabs";
 
+/** Шапка: логотип, два раздела, профиль. Одна строка и на телефоне, и на компьютере. */
 export function Topbar({
   user,
   overdueCount,
@@ -15,62 +18,42 @@ export function Topbar({
   overdueCount: number;
   defaultPasswordRoles: string[];
 }) {
-  const botConfigured = !!process.env.TELEGRAM_BOT_USERNAME;
-
   return (
-    <>
-      <div className="flex items-center gap-3 border-b border-line bg-bg/80 px-4 py-3 backdrop-blur sm:px-6">
-        <form action="/" method="get" className="relative max-w-xl flex-1">
-          <input type="hidden" name="view" value="list" />
-          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-          <input
-            type="search"
-            name="q"
-            placeholder="Поиск по мероприятиям…"
-            className="w-full rounded-lg border border-line bg-surface py-2 pl-9 pr-3 text-sm text-ink placeholder:text-muted"
-          />
-        </form>
+    <header className="sticky top-0 z-30 border-b border-line bg-bg/90 backdrop-blur">
+      <div className="mx-auto flex max-w-5xl items-center gap-2 px-3 py-2 sm:gap-4 sm:px-6">
+        <Link href="/" className="flex shrink-0 items-center gap-2" title="Бизнес-клуб Губкина">
+          <Image src="/logo.jpg" alt="" width={32} height={32} className="rounded-full" />
+          <span className="hidden text-sm font-bold uppercase leading-tight tracking-wide text-ink md:block">
+            Бизнес-клуб
+            <br />
+            Губкина
+          </span>
+        </Link>
 
-        <div className="ml-auto flex items-center gap-3">
+        {user && <NavTabs overdueCount={overdueCount} showPeople={user.role === "ADMIN"} />}
+
+        <div className="ml-auto flex items-center">
           {user ? (
-            <>
-              <Link
-                href="/my"
-                title={overdueCount > 0 ? `Просроченных задач: ${overdueCount}` : "Мой день"}
-                className="relative flex h-9 w-9 items-center justify-center rounded-full border border-line text-muted hover:text-ink"
-              >
-                <BellIcon className="h-5 w-5" />
-                {overdueCount > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-white">
-                    {overdueCount}
-                  </span>
-                )}
-              </Link>
-              <details className="relative">
-                <summary className="flex cursor-pointer list-none items-center gap-2">
-                  <Avatar name={displayName(user)} size={32} />
-                  <span className="hidden text-sm text-ink sm:inline">{user.firstName}</span>
-                  <ChevronDownIcon className="h-3.5 w-3.5 text-muted" />
-                </summary>
-                <div className="absolute right-0 top-full z-20 mt-2 w-56 rounded-lg border border-line bg-surface p-2 shadow-glow">
-                  <p className="px-2 pt-1 text-sm font-bold text-ink">{displayName(user)}</p>
-                  <p className="px-2 pb-2 text-xs text-muted">{ROLE_LABELS[user.role]}</p>
-                  <Link href="/profile" className="block rounded px-2 py-1.5 text-sm text-muted hover:bg-surface2 hover:text-ink">
-                    Профиль и уведомления
-                  </Link>
-                  <form action={logoutAction}>
-                    <button
-                      type="submit"
-                      className="w-full rounded px-2 py-1.5 text-left text-sm text-muted hover:bg-surface2 hover:text-ink"
-                    >
-                      Выйти
-                    </button>
-                  </form>
-                </div>
-              </details>
-            </>
+            <details className="relative">
+              <summary className="flex cursor-pointer list-none items-center gap-1.5">
+                <Avatar name={displayName(user)} size={32} />
+                <ChevronDownIcon className="h-3.5 w-3.5 text-muted" />
+              </summary>
+              <div className="absolute right-0 top-full z-40 mt-2 w-60 rounded-lg border border-line bg-surface p-2 shadow-glow">
+                <p className="px-2 pt-1 text-sm font-bold text-ink">{displayName(user)}</p>
+                <p className="px-2 pb-2 text-xs text-muted">{ROLE_LABELS[user.role]}</p>
+                <Link href="/profile" className="block rounded px-2 py-2 text-sm text-ink hover:bg-surface2">
+                  Профиль и Telegram
+                </Link>
+                <form action={logoutAction}>
+                  <button type="submit" className="w-full rounded px-2 py-2 text-left text-sm text-ink hover:bg-surface2">
+                    Выйти
+                  </button>
+                </form>
+              </div>
+            </details>
           ) : (
-            <Link href="/login" className="rounded-lg bg-gold px-4 py-1.5 text-sm font-bold text-bg hover:bg-gold/90">
+            <Link href="/login" className="rounded-lg bg-gold px-4 py-2 text-sm font-bold text-bg hover:bg-gold/90">
               Войти
             </Link>
           )}
@@ -78,25 +61,14 @@ export function Topbar({
       </div>
 
       {user?.role === "ADMIN" && defaultPasswordRoles.length > 0 && (
-        <div className="border-b border-danger/30 bg-danger/10 px-4 py-2 text-center text-sm text-ink">
-          У ролей ({defaultPasswordRoles.map((r) => ROLE_LABELS[r as keyof typeof ROLE_LABELS].toLowerCase()).join(", ")}) стоят
-          пароли по умолчанию.{" "}
+        <div className="border-t border-danger/30 bg-danger/10 px-4 py-2 text-center text-sm text-ink">
+          Пароли ролей стоят по умолчанию.{" "}
           <Link href="/settings?tab=access" className="font-bold underline">
-            Смените их в настройках
+            Смените их
           </Link>{" "}
           перед тем, как раздавать доступ.
         </div>
       )}
-
-      {user && !user.botStarted && botConfigured && (
-        <div className="border-b border-gold/30 bg-gold/10 px-4 py-2 text-center text-sm text-ink">
-          Чтобы получать напоминания в Telegram,{" "}
-          <Link href="/profile" className="font-bold underline">
-            подключите бота в профиле
-          </Link>
-          .
-        </div>
-      )}
-    </>
+    </header>
   );
 }

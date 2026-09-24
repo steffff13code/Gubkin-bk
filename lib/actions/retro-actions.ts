@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { friendlyError } from "@/lib/errors";
 import { canManageEvent, PermissionError, requireUser } from "@/lib/permissions";
 import { autoCompleteTasks } from "@/lib/tasks/service";
 
@@ -10,7 +11,7 @@ async function runOrRedirect(eventId: string, fn: () => Promise<void>): Promise<
   try {
     await fn();
   } catch (e) {
-    error = e instanceof Error ? e.message : "Не удалось выполнить действие.";
+    error = friendlyError(e, "Не удалось выполнить действие.");
   }
   const params = new URLSearchParams({ tab: "itogi" });
   if (error) params.set("error", error);

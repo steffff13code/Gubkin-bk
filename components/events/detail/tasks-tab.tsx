@@ -4,7 +4,7 @@ import type { EventDetail } from "@/lib/queries/event-detail";
 import { DEPARTMENT_LABELS, TASK_GROUP_LABELS } from "@/lib/labels";
 import { displayName } from "@/lib/auth";
 import { Avatar } from "@/components/avatar";
-import { formatDate, isOverdue } from "@/lib/time";
+import { calendarDay, formatDate, isOverdue } from "@/lib/time";
 import { assignToMeAction, skipTaskAction, toggleTaskAction, updateTaskAction } from "@/lib/actions/task-actions";
 
 type TaskWithRelations = EventDetail["tasks"][number];
@@ -13,69 +13,96 @@ export function TasksTab({
   event,
   users,
   currentUserId,
-  canManage
+  canManage,
+  showAll
 }: {
   event: EventDetail;
   users: { id: string; firstName: string; lastName: string | null }[];
   currentUserId: string | null;
   canManage: boolean;
+  /** false — только открытые задачи, выполненные спрятаны. */
+  showAll: boolean;
 }) {
   const locked = event.stage === "CLOSED" || event.stage === "REJECTED";
-  if (event.tasks.length === 0) {
-    return (
-      <div className="rounded border border-line bg-surface p-6 text-center text-sm text-muted">
-        {event.dateFixed
-          ? "Для этого типа мероприятия ещё не заполнен шаблон задач — заполните его в настройках."
-          : "Задач пока нет. Запустите подготовку по окну дат — план развернётся по регламенту."}
-      </div>
-    );
-  }
-
+  const closedCount = event.tasks.filter((t) => t.status !== "TODO").length;
+  const openCount = event.tasks.length - closedCount;
+  const pct = event.tasks.length ? Math.round((closedCount / event.tasks.length) * 100) : 0;
+  const visible = showAll ? event.tasks : event.tasks.filter((t) => t.status === "TODO");
   const groups: EventDetail["tasks"][number]["group"][] = ["BEFORE", "EVENT_DAY", "AFTER"];
+  // Раскрыта только текущая часть плана: до мероприятия, день Д или после.
+  const today = calendarDay(new Date()).getTime();
+  const eventDay = event.targetDate ? calendarDay(event.targetDate).getTime() : null;
+  const currentGroup =
+    event.stage === "DONE" || event.stage === "CLOSED"
+      ? "AFTER"
+      : eventDay !== null && event.dateFixed && eventDay <= today
+        ? "EVENT_DAY"
+        : "BEFORE";
 
   return (
-    <div className="space-y-6">
-      {groups.map((group) => {
-        const groupTasks = event.tasks.filter((t) => t.group === group);
-        if (groupTasks.length === 0) return null;
-        const byDept = new Map<string, TaskWithRelations[]>();
-        for (const t of groupTasks) {
-          const key = t.department ?? "_";
-          byDept.set(key, [...(byDept.get(key) ?? []), t]);
-        }
-        return (
-          <section key={group}>
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <h2 className="text-sm font-bold text-ink">{TASK_GROUP_LABELS[group]}</h2>
-              {group === "EVENT_DAY" && (
-                <Link href={`/events/${event.id}/day`} className="text-xs font-bold text-gold hover:underline">
-                  Тайминг дня по порядку →
-                </Link>
-              )}
-            </div>
-            <div className="space-y-4">
-              {Array.from(byDept.entries()).map(([dept, tasks]) => (
-                <div key={dept} className="rounded border border-line bg-surface">
-                  <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-1.5 text-xs font-bold text-muted">
-                    <span>{dept === "_" ? "Без отдела" : DEPARTMENT_LABELS[dept as keyof typeof DEPARTMENT_LABELS]}</span>
-                    {dept !== "_" && (
-                      <Link href={`/regulations#${dept}`} className="font-normal text-muted hover:text-gold">
-                        регламент отдела →
-                      </Link>
-                    )}
+    <section className="rounded-xl border border-line bg-surface p-4 sm:p-5">
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-lg font-bold text-ink">Задачи</h2>
+        <span className="text-sm text-muted">
+          выполнено {closedCount} из {event.tasks.length}
+        </span>
+        <Link
+          href={`/events/${event.id}${showAll ? "" : "?all=1"}`}
+          scroll={false}
+          className="ml-auto rounded-lg border border-line px-3 py-1.5 text-xs font-bold text-ink hover:border-gold"
+        >
+          {showAll ? "Скрыть выполненные" : `Показать выполненные (${closedCount})`}
+        </Link>
+      </div>
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-line">
+        <div className="h-full rounded-full bg-success" style={{ width: `${pct}%` }} />
+      </div>
+
+      {openCount === 0 && !showAll && (
+        <p className="mt-4 rounded-lg bg-success/10 px-3 py-2 text-sm font-bold text-success">Все задачи выполнены.</p>
+      )}
+
+      <div className="mt-4 space-y-5">
+        {groups.map((group) => {
+          const groupTasks = visible.filter((t) => t.group === group);
+          if (groupTasks.length === 0) return null;
+          const byDept = new Map<string, TaskWithRelations[]>();
+          for (const t of groupTasks) {
+            const key = t.department ?? "_";
+            byDept.set(key, [...(byDept.get(key) ?? []), t]);
+          }
+          return (
+            <details key={group} open={showAll || group === currentGroup} className="group/part">
+              <summary className="mb-2 flex cursor-pointer list-none items-center gap-2">
+                <span className="text-xs text-muted transition group-open/part:rotate-90">▶</span>
+                <h3 className="text-xs font-bold uppercase tracking-wide text-muted">
+                  {TASK_GROUP_LABELS[group]} · {groupTasks.length}
+                </h3>
+                {group === "EVENT_DAY" && (
+                  <Link href={`/events/${event.id}/day`} className="ml-auto text-xs font-bold text-gold hover:underline">
+                    Тайминг дня по порядку →
+                  </Link>
+                )}
+              </summary>
+              <div className="space-y-3">
+                {Array.from(byDept.entries()).map(([dept, tasks]) => (
+                  <div key={dept} className="rounded-lg border border-line bg-bg">
+                    <p className="border-b border-line px-3 py-1.5 text-xs font-bold text-gold">
+                      {dept === "_" ? "Лид мероприятия" : DEPARTMENT_LABELS[dept as keyof typeof DEPARTMENT_LABELS]}
+                    </p>
+                    <ul className="divide-y divide-line">
+                      {tasks.map((t) => (
+                        <TaskRow key={t.id} task={t} users={users} currentUserId={currentUserId} canManage={canManage} locked={locked} />
+                      ))}
+                    </ul>
                   </div>
-                  <ul className="divide-y divide-line">
-                    {tasks.map((t) => (
-                      <TaskRow key={t.id} task={t} users={users} currentUserId={currentUserId} canManage={canManage} locked={locked} />
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          </section>
-        );
-      })}
-    </div>
+                ))}
+              </div>
+            </details>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -102,8 +129,8 @@ function TaskRow({
   const hasMenu = canTake || canEdit;
 
   const box = clsx(
-    "flex h-4 w-4 items-center justify-center rounded border text-[10px]",
-    task.status === "DONE" ? "border-gold bg-gold text-bg" : "border-line"
+    "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold",
+    task.status === "DONE" ? "border-success bg-success text-bg" : "border-line text-transparent"
   );
 
   return (
@@ -113,11 +140,11 @@ function TaskRow({
           <form action={toggleTaskAction.bind(null, task.id, task.status !== "DONE")} className="pt-0.5">
             <button
               type="submit"
-              className={clsx(box, "hover:border-gold")}
+              className={clsx(box, "hover:border-success hover:text-success")}
               title={task.status === "DONE" ? "Открыть заново" : "Отметить выполненной"}
               aria-label={task.status === "DONE" ? "Открыть заново" : "Отметить выполненной"}
             >
-              {task.status === "DONE" ? "✓" : ""}
+              ✓
             </button>
           </form>
         ) : (

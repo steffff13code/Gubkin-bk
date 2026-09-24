@@ -1,65 +1,62 @@
 import Link from "next/link";
-import { BOARD_STAGES, EVENT_STAGE_DOT_CLASSES, EVENT_STAGE_LABELS } from "@/lib/labels";
+import type { EventStage } from "@prisma/client";
+import { EVENT_STAGE_DOT_CLASSES, EVENT_STAGE_LABELS } from "@/lib/labels";
 import type { EventListItem } from "@/lib/queries/events";
 import { EventCard } from "@/components/events/event-card";
-import { CalendarIcon, CheckCircleIcon, DocIcon, LightbulbIcon, LockIcon } from "@/components/icons";
-import type { EventStage } from "@prisma/client";
 
-const EMPTY_STATE: Record<EventStage, { icon: (p: { className?: string }) => React.ReactElement; title: string; hint: string }> = {
-  IDEA: { icon: LightbulbIcon, title: "Пока нет идей", hint: "Здесь будут появляться новые идеи мероприятий" },
-  APPROVAL: { icon: DocIcon, title: "Ничего не ждёт согласования", hint: "Мероприятия появятся здесь после отправки" },
-  PLANNING: { icon: CalendarIcon, title: "Нечего планировать", hint: "Согласованные мероприятия появятся здесь" },
-  IN_PROGRESS: { icon: CalendarIcon, title: "Нет мероприятий в подготовке", hint: "После фиксации даты план появится здесь" },
-  DONE: { icon: CheckCircleIcon, title: "Пока нет проведённых мероприятий", hint: "Завершённые мероприятия будут отображаться здесь" },
-  CLOSED: { icon: LockIcon, title: "Пока нет закрытых мероприятий", hint: "Архив завершённых мероприятий" },
-  REJECTED: { icon: DocIcon, title: "Ничего отклонённого", hint: "" }
-};
+// Колонки доски — путь мероприятия. Закрытые (архив) — во вкладке «Список».
+const COLUMNS: { stage: EventStage; hint: string }[] = [
+  { stage: "IDEA", hint: "Черновик: заполнить и отправить" },
+  { stage: "APPROVAL", hint: "Ждёт руководителя клуба" },
+  { stage: "PLANNING", hint: "Нужно окно дат с гостем" },
+  { stage: "IN_PROGRESS", hint: "Отделы работают по плану" },
+  { stage: "DONE", hint: "Нужны итоги" }
+];
 
 export function BoardView({ events, canCreate = false }: { events: EventListItem[]; canCreate?: boolean }) {
+  const closed = events.filter((e) => e.stage === "CLOSED").length;
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-      {BOARD_STAGES.map((stage) => {
-        const items = events.filter((e) => e.stage === stage);
-        const empty = EMPTY_STATE[stage];
-        const EmptyIcon = empty.icon;
-        return (
-          <div key={stage} className="rounded-xl border border-line bg-surface/40 p-2.5">
-            <div className="mb-3 flex items-center gap-2 px-1">
-              <h2 className="flex min-w-0 items-center gap-1.5 truncate text-[13px] font-bold text-ink">
-                <span className={`h-2 w-2 shrink-0 rounded-full ${EVENT_STAGE_DOT_CLASSES[stage]}`} />
-                <span className="truncate">{EVENT_STAGE_LABELS[stage]}</span>
-              </h2>
-              <span className="ml-auto shrink-0 text-xs text-muted">{items.length}</span>
-              {stage === "IDEA" && canCreate && (
-                <Link
-                  href="/events/new"
-                  title="Новое мероприятие"
-                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-gold/15 text-sm font-bold text-gold hover:bg-gold hover:text-bg"
-                >
-                  +
-                </Link>
-              )}
-            </div>
-            <div className="space-y-2">
-              {items.map((e) => (
-                <EventCard key={e.id} event={e} />
-              ))}
-              {items.length === 0 && (
-                <div className="flex flex-col items-center gap-2 px-2 py-10 text-center">
-                  <EmptyIcon className="h-8 w-8 text-muted/50" />
-                  <p className="text-sm text-muted">{empty.title}</p>
-                  {empty.hint && <p className="text-xs text-muted/70">{empty.hint}</p>}
-                  {stage === "IDEA" && (
-                    <Link href="/ideas" className="text-xs font-bold text-gold hover:underline">
-                      Банк идей клуба →
+    <div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        {COLUMNS.map(({ stage, hint }) => {
+          const items = events.filter((e) => e.stage === stage);
+          return (
+            <div key={stage} className="rounded-xl border border-line bg-surface/40 p-2.5">
+              <div className="mb-2 px-1">
+                <div className="flex items-center gap-2">
+                  <span className={`h-2 w-2 shrink-0 rounded-full ${EVENT_STAGE_DOT_CLASSES[stage]}`} />
+                  <h2 className="min-w-0 truncate text-sm font-bold text-ink">{EVENT_STAGE_LABELS[stage]}</h2>
+                  <span className="ml-auto text-xs text-muted">{items.length}</span>
+                  {stage === "IDEA" && canCreate && (
+                    <Link
+                      href="/events/new"
+                      title="Новое мероприятие"
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-gold/15 text-sm font-bold text-gold hover:bg-gold hover:text-bg"
+                    >
+                      +
                     </Link>
                   )}
                 </div>
-              )}
+                <p className="mt-0.5 text-[11px] text-muted">{hint}</p>
+              </div>
+              <div className="space-y-2">
+                {items.map((e) => (
+                  <EventCard key={e.id} event={e} />
+                ))}
+                {items.length === 0 && <p className="px-1 py-6 text-center text-xs text-muted/70">Пусто</p>}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
+      {closed > 0 && (
+        <p className="mt-3 text-sm text-muted">
+          Закрытых мероприятий: {closed} —{" "}
+          <Link href="/?view=list" className="text-gold hover:underline">
+            смотреть в списке
+          </Link>
+        </p>
+      )}
     </div>
   );
 }

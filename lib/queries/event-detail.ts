@@ -21,20 +21,6 @@ export async function getEventDetail(id: string) {
 
 export type EventDetail = NonNullable<Awaited<ReturnType<typeof getEventDetail>>>;
 
-export async function getPastRetros(type: string, excludeEventId: string) {
-  return prisma.event.findMany({
-    where: {
-      type: type as never,
-      stage: "CLOSED",
-      retro: { isNot: null },
-      NOT: { id: excludeEventId }
-    },
-    include: { retro: true },
-    orderBy: { closedAt: "desc" },
-    take: 3
-  });
-}
-
 export async function getActiveUsers() {
   return prisma.user.findMany({
     where: { isActive: true },

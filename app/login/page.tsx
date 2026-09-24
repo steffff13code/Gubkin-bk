@@ -91,7 +91,7 @@ export default async function LoginPage({
         )}
       </div>
       <p className="mt-4 text-center text-xs text-muted">
-        Без входа можно смотреть поток мероприятий, регламенты и отправить анонимную идею.
+        Без входа можно только смотреть список мероприятий.
       </p>
     </div>
   );

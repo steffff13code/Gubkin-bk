@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { friendlyError } from "@/lib/errors";
 import { canManageEvent, PermissionError, requireUser } from "@/lib/permissions";
 import { fireTaskTrigger } from "@/lib/tasks/service";
 
@@ -10,7 +11,7 @@ async function runOrRedirect(eventId: string, fn: () => Promise<void>, returnTo?
   try {
     await fn();
   } catch (e) {
-    error = e instanceof Error ? e.message : "Не удалось выполнить действие.";
+    error = friendlyError(e, "Не удалось выполнить действие.");
   }
   if (returnTo && !error && returnTo.startsWith("/") && !returnTo.startsWith("//")) {
     redirect(returnTo);

@@ -187,6 +187,7 @@ export function StageActions({
 
   if (event.stage === "IN_PROGRESS") {
     const isToday = event.targetDate && calendarDay(event.targetDate).getTime() === calendarDay(new Date()).getTime();
+    const dayCame = !!event.targetDate && calendarDay(event.targetDate).getTime() <= calendarDay(new Date()).getTime();
     return (
       <div className="space-y-2">
         <p className="text-sm text-ink">
@@ -210,11 +211,13 @@ export function StageActions({
                 </form>
                 <p className="mt-1 text-xs text-muted">Сроки открытых задач пересчитаются от новой даты, закрытые не тронем.</p>
               </details>
-              <form action={markDoneAction.bind(null, event.id)}>
-                <button type="submit" className={primaryBtn}>
-                  Отметить проведённым
-                </button>
-              </form>
+              {dayCame && (
+                <form action={markDoneAction.bind(null, event.id)}>
+                  <button type="submit" className={primaryBtn}>
+                    Отметить проведённым
+                  </button>
+                </form>
+              )}
             </>
           )}
         </div>
@@ -223,7 +226,7 @@ export function StageActions({
   }
 
   if (event.stage === "DONE") {
-    return <p className="text-sm text-muted">Мероприятие проведено. Заполните итоги во вкладке «Итоги», чтобы закрыть его.</p>;
+    return <p className="text-sm text-muted">Мероприятие проведено. Прикрепите фотоотчёт, заполните посещаемость и ретро в блоке «Итоги» ниже — и закройте его.</p>;
   }
 
   if (event.stage === "REJECTED") {

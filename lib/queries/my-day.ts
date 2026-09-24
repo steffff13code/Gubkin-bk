@@ -91,90 +91,18 @@ export async function getMyEvents(userId: string) {
   };
 }
 
-const CHECKLIST_STAGES: EventStage[] = ["IN_PROGRESS", "DONE"];
-
-/**
- * Чек-лист отдела по каждому мероприятию в работе — видят все люди отдела.
- * Руководителю и заму дополнительно — загрузка команды.
- */
-export async function getDepartmentOverview(departments: DepartmentCode[], withTeam: DepartmentCode[] = []) {
+/** Свободные задачи моих отделов (без исполнителя) в мероприятиях, которые готовятся. */
+export async function getFreeDepartmentTasks(departments: DepartmentCode[]) {
   if (departments.length === 0) return [];
-  const [tasks, people] = await Promise.all([
-    prisma.task.findMany({
-      where: { department: { in: departments }, event: { stage: { in: CHECKLIST_STAGES } } },
-      include: {
-        event: { select: { id: true, title: true, targetDate: true, dateFixed: true, stage: true, leadId: true } },
-        assignee: { select: { id: true, firstName: true, lastName: true } },
-        secondAssignee: { select: { id: true, firstName: true, lastName: true } }
-      },
-      orderBy: [{ event: { targetDate: "asc" } }, { group: "asc" }, { sortOrder: "asc" }]
-    }),
-    withTeam.length
-      ? prisma.userDepartment.findMany({
-          where: { departmentCode: { in: withTeam }, user: { isActive: true } },
-          include: { user: { select: { id: true, firstName: true, lastName: true } } }
-        })
-      : Promise.resolve([])
-  ]);
-
-  return departments.map((code) => {
-    const deptTasks = tasks.filter((t) => t.department === code);
-    const open = deptTasks.filter((t) => t.status === "TODO");
-    const byEvent = new Map<string, { event: (typeof deptTasks)[number]["event"]; tasks: typeof deptTasks }>();
-    for (const t of deptTasks) {
-      const entry = byEvent.get(t.eventId) ?? { event: t.event, tasks: [] };
-      entry.tasks.push(t);
-      byEvent.set(t.eventId, entry);
-    }
-    const team = withTeam.includes(code)
-      ? people
-          .filter((p) => p.departmentCode === code)
-          .map((p) => ({
-            ...p.user,
-            position: p.position,
-            open: open.filter((t) => t.assigneeId === p.user.id || t.secondAssigneeId === p.user.id).length,
-            overdue: open.filter((t) => (t.assigneeId === p.user.id || t.secondAssigneeId === p.user.id) && isOverdue(t.dueDate)).length
-          }))
-      : null;
-    return {
-      code,
-      events: Array.from(byEvent.values()),
-      unassigned: open.filter((t) => !t.assigneeId),
-      overdueCount: open.filter((t) => isOverdue(t.dueDate)).length,
-      openCount: open.length,
-      team
-    };
-  });
-}
-
-/** Руководитель клуба видит всё: по каждому мероприятию в работе — прогресс каждого отдела. */
-export async function getClubOverview() {
-  const events = await prisma.event.findMany({
-    where: { stage: { in: ["PLANNING", "IN_PROGRESS", "DONE"] } },
-    include: {
-      lead: { select: { firstName: true, lastName: true } },
-      tasks: { select: { department: true, status: true, required: true, dueDate: true } }
+  return prisma.task.findMany({
+    where: {
+      status: "TODO",
+      assigneeId: null,
+      department: { in: departments },
+      event: { stage: { in: ["IN_PROGRESS", "DONE"] } }
     },
-    orderBy: [{ targetDate: "asc" }]
-  });
-  return events.map((e) => {
-    const cells: Record<string, { done: number; total: number; overdue: number }> = {};
-    for (const t of e.tasks) {
-      const key = t.department ?? "_";
-      cells[key] ??= { done: 0, total: 0, overdue: 0 };
-      cells[key].total++;
-      if (t.status !== "TODO") cells[key].done++;
-      else if (t.required && isOverdue(t.dueDate)) cells[key].overdue++;
-    }
-    return {
-      id: e.id,
-      title: e.title,
-      stage: e.stage,
-      targetDate: e.targetDate,
-      dateFixed: e.dateFixed,
-      leadName: e.lead ? (e.lead.lastName ? `${e.lead.firstName} ${e.lead.lastName}` : e.lead.firstName) : null,
-      cells
-    };
+    include: { event: { select: { id: true, title: true } } },
+    orderBy: [{ dueDate: "asc" }]
   });
 }
 
@@ -184,14 +112,6 @@ export async function getTodayEvents(now: Date = new Date()) {
   return prisma.event.findMany({
     where: { stage: { in: ["IN_PROGRESS", "DONE"] }, dateFixed: true, targetDate: today },
     select: { id: true, title: true, timeSlot: true, venue: true, stage: true }
-  });
-}
-
-/** Регламенты человека: свои отделы + общие. */
-export async function getMyRegulations(departments: DepartmentCode[]) {
-  return prisma.regulation.findMany({
-    where: { OR: [{ department: { in: departments } }, { department: null }] },
-    orderBy: { sortOrder: "asc" }
   });
 }
 

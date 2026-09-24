@@ -1,53 +1,32 @@
 import Link from "next/link";
-import type { DepartmentCode, EventType } from "@prisma/client";
+import clsx from "clsx";
 import { getCurrentUser } from "@/lib/auth";
 import { isLeadOrAdmin } from "@/lib/permissions";
-import { getEventsList, getLeadOptions } from "@/lib/queries/events";
+import { getEventsList } from "@/lib/queries/events";
 import { getTodayEvents } from "@/lib/queries/my-day";
-import { EVENT_STAGE_LABELS } from "@/lib/labels";
-import { FilterBar } from "@/components/events/filter-bar";
-import { ViewTabs } from "@/components/events/view-tabs";
 import { BoardView } from "@/components/events/board-view";
 import { ListView } from "@/components/events/list-view";
-import { CalendarView } from "@/components/events/calendar-view";
-import { PlusIcon } from "@/components/icons";
+import { PlusIcon, SearchIcon } from "@/components/icons";
 
-export default async function HomePage({
-  searchParams
-}: {
-  searchParams: Record<string, string | undefined>;
-}) {
+export default async function EventsPage({ searchParams }: { searchParams: Record<string, string | undefined> }) {
   const user = await getCurrentUser();
-  const view = searchParams.view ?? "board";
+  const view = searchParams.view === "list" ? "list" : "board";
+  const mine = !!user && searchParams.mine === "1";
+  const q = searchParams.q?.trim() || "";
 
-  const now = new Date();
-  const [year, month] = searchParams.month
-    ? searchParams.month.split("-").map(Number)
-    : [now.getUTCFullYear(), now.getUTCMonth() + 1];
-
-  const [events, leads, today] = await Promise.all([
-    getEventsList({
-      type: searchParams.type as EventType | undefined,
-      department: searchParams.department as DepartmentCode | undefined,
-      leadId: searchParams.lead,
-      mine: searchParams.mine === "1",
-      currentUserId: user?.id ?? null,
-      q: searchParams.q,
-      includeRejected: view === "list" && searchParams.rejected === "1"
-    }),
-    getLeadOptions(),
+  const [events, today] = await Promise.all([
+    getEventsList({ mine, currentUserId: user?.id ?? null, q }),
     getTodayEvents()
   ]);
 
-  const stageCounts = new Map<string, number>();
-  for (const e of events) stageCounts.set(e.stage, (stageCounts.get(e.stage) ?? 0) + 1);
-  const statLine = [`${events.length} мероприятий`]
-    .concat(
-      (["IN_PROGRESS", "APPROVAL", "DONE"] as const)
-        .filter((s) => stageCounts.get(s))
-        .map((s) => `${stageCounts.get(s)} ${EVENT_STAGE_LABELS[s].toLowerCase()}`)
-    )
-    .join(" · ");
+  // Ссылка с сохранением остальных параметров.
+  const href = (patch: Record<string, string | null>) => {
+    const params = new URLSearchParams();
+    const next = { view: view === "list" ? "list" : null, mine: mine ? "1" : null, q: q || null, ...patch };
+    for (const [k, v] of Object.entries(next)) if (v) params.set(k, v);
+    const s = params.toString();
+    return s ? `/?${s}` : "/";
+  };
 
   return (
     <div>
@@ -60,20 +39,21 @@ export default async function HomePage({
           <span className="rounded bg-gold px-2 py-1 text-xs font-bold uppercase text-bg">Сегодня</span>
           <span className="min-w-0 flex-1 font-bold text-ink">
             {e.title}
-            <span className="font-normal text-muted">{e.timeSlot ? ` · ${e.timeSlot}` : ""}{e.venue ? ` · ${e.venue}` : ""}</span>
+            <span className="font-normal text-muted">
+              {e.timeSlot ? ` · ${e.timeSlot}` : ""}
+              {e.venue ? ` · ${e.venue}` : ""}
+            </span>
           </span>
           <span className="text-sm font-bold text-gold">Тайминг дня →</span>
         </Link>
       ))}
-      <div className="mb-1 flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-ink">Поток мероприятий</h1>
-          <p className="mt-1 text-sm text-muted">{statLine}</p>
-        </div>
+
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-ink">Мероприятия</h1>
         {isLeadOrAdmin(user) && (
           <Link
             href="/events/new"
-            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-gold px-4 py-2 text-sm font-bold text-bg hover:bg-gold/90"
+            className="flex items-center gap-1.5 rounded-lg bg-gold px-4 py-2 text-sm font-bold text-bg hover:bg-gold/90"
           >
             <PlusIcon className="h-4 w-4" />
             Новое мероприятие
@@ -81,16 +61,64 @@ export default async function HomePage({
         )}
       </div>
 
-      <div className="mt-4">
-        <ViewTabs view={view} searchParams={searchParams} />
-        <FilterBar leads={leads} showMine={!!user} showRejected={view === "list"} />
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <form action="/" method="get" className="relative min-w-0 flex-1 basis-56">
+          {view === "list" && <input type="hidden" name="view" value="list" />}
+          {mine && <input type="hidden" name="mine" value="1" />}
+          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+          <input
+            type="search"
+            name="q"
+            defaultValue={q}
+            placeholder="Найти мероприятие"
+            className="w-full rounded-lg border border-line bg-surface py-2 pl-9 pr-3 text-sm text-ink placeholder:text-muted"
+          />
+        </form>
+        {user && (
+          <Segmented
+            items={[
+              { label: "Все", href: href({ mine: null }), active: !mine },
+              { label: "Мои", href: href({ mine: "1" }), active: mine }
+            ]}
+          />
+        )}
+        <Segmented
+          items={[
+            { label: "Доска", href: href({ view: null }), active: view === "board" },
+            { label: "Список", href: href({ view: "list" }), active: view === "list" }
+          ]}
+        />
       </div>
 
-      {view === "list" && <ListView events={events} />}
-      {view === "calendar" && (
-        <CalendarView events={events} year={year} month={month - 1} searchParams={searchParams} />
+      {q && (
+        <p className="mb-3 text-sm text-muted">
+          По запросу «{q}» найдено: {events.length}.{" "}
+          <Link href={href({ q: null })} className="text-gold hover:underline">
+            Сбросить
+          </Link>
+        </p>
       )}
-      {view !== "list" && view !== "calendar" && <BoardView events={events} canCreate={isLeadOrAdmin(user)} />}
+
+      {view === "list" ? <ListView events={events} /> : <BoardView events={events} canCreate={isLeadOrAdmin(user)} />}
+    </div>
+  );
+}
+
+function Segmented({ items }: { items: { label: string; href: string; active: boolean }[] }) {
+  return (
+    <div className="flex rounded-lg border border-line bg-surface p-0.5">
+      {items.map((i) => (
+        <Link
+          key={i.label}
+          href={i.href}
+          className={clsx(
+            "rounded-md px-3 py-1.5 text-sm font-bold",
+            i.active ? "bg-surface2 text-ink" : "text-muted hover:text-ink"
+          )}
+        >
+          {i.label}
+        </Link>
+      ))}
     </div>
   );
 }

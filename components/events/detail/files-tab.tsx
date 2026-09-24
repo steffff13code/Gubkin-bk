@@ -21,12 +21,13 @@ export function FilesTab({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
+      <h2 className="text-sm font-bold text-ink">Файлы и ссылки</h2>
       {Array.from(byKind.entries()).map(([kind, files]) => (
         <section key={kind}>
-          <h2 className="mb-2 text-sm font-bold text-ink">
+          <h3 className="mb-1 text-xs font-bold text-muted">
             {ATTACHMENT_KIND_LABELS[kind as keyof typeof ATTACHMENT_KIND_LABELS]}
-          </h2>
+          </h3>
           <ul className="space-y-1 rounded border border-line bg-surface p-2">
             {files.map((f) => (
               <li key={f.id} className="flex items-center justify-between text-sm">
@@ -48,11 +49,11 @@ export function FilesTab({
           </ul>
         </section>
       ))}
-      {event.attachments.length === 0 && <p className="text-sm text-muted">Файлов пока нет.</p>}
+      {event.attachments.length === 0 && <p className="text-sm text-muted">Ссылок пока нет.</p>}
 
       {canPost && (
         <form action={addAttachmentAction.bind(null, event.id)} className="rounded border border-line bg-surface p-4">
-          <h2 className="mb-2 text-sm font-bold text-ink">Добавить ссылку</h2>
+          <h3 className="mb-2 text-xs font-bold text-muted">Добавить ссылку</h3>
           <div className="flex flex-wrap gap-2">
             <select name="kind" className="rounded border border-line bg-bg px-2 py-1.5 text-sm">
               {Object.entries(ATTACHMENT_KIND_LABELS).map(([k, v]) => (

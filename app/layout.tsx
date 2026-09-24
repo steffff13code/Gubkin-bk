@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import { Golos_Text } from "next/font/google";
 import "./globals.css";
-import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
-import { MobileNav } from "@/components/layout/mobile-nav";
 import { NavProgress } from "@/components/layout/nav-progress";
 import { Suspense } from "react";
 import { getCurrentUser } from "@/lib/auth";
@@ -38,13 +36,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Suspense fallback={null}>
           <NavProgress />
         </Suspense>
-        <div className="relative z-10 flex min-h-screen">
-          <Sidebar showSettings={admin} />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <Topbar user={user} overdueCount={overdueCount} defaultPasswordRoles={defaultPasswordRoles} />
-            <MobileNav showSettings={admin} />
-            <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6">{children}</main>
-          </div>
+        <div className="relative z-10 flex min-h-screen flex-col">
+          <Topbar user={user} overdueCount={overdueCount} defaultPasswordRoles={defaultPasswordRoles} />
+          <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-5 sm:px-6">{children}</main>
         </div>
       </body>
     </html>

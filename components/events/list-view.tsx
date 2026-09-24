@@ -1,55 +1,48 @@
 import Link from "next/link";
-import { EVENT_STAGE_LABELS, EVENT_TYPE_LABELS } from "@/lib/labels";
+import clsx from "clsx";
+import { EVENT_STAGE_DOT_CLASSES, EVENT_STAGE_LABELS } from "@/lib/labels";
 import { formatDate } from "@/lib/time";
 import type { EventListItem } from "@/lib/queries/events";
 
+/** Список всех мероприятий, включая закрытые — удобно на телефоне и для архива. */
 export function ListView({ events }: { events: EventListItem[] }) {
   if (events.length === 0) {
-    return <p className="text-sm text-muted">Мероприятий не найдено.</p>;
+    return <p className="rounded-xl border border-line bg-surface p-6 text-center text-sm text-muted">Мероприятий не найдено.</p>;
   }
-
   return (
-    <div className="overflow-x-auto rounded border border-line bg-surface">
-      <table className="w-full min-w-[720px] text-left text-sm">
-        <thead className="border-b border-line text-muted">
-          <tr>
-            <th className="px-3 py-2">Название</th>
-            <th className="px-3 py-2">Тип</th>
-            <th className="px-3 py-2">Дата</th>
-            <th className="px-3 py-2">Стадия</th>
-            <th className="px-3 py-2">Лид</th>
-            <th className="px-3 py-2">Гость</th>
-            <th className="px-3 py-2">Площадка</th>
-            <th className="px-3 py-2">Задачи</th>
-          </tr>
-        </thead>
-        <tbody>
-          {events.map((e) => (
-            <tr key={e.id} className="border-b border-line last:border-0 hover:bg-bg">
-              <td className="px-3 py-2">
-                <Link href={`/events/${e.id}`} className="font-bold text-ink hover:text-gold">
-                  {e.title}
-                </Link>
-              </td>
-              <td className="px-3 py-2 text-muted">{EVENT_TYPE_LABELS[e.type]}</td>
-              <td className="px-3 py-2 text-muted">
-                {e.targetDate && !e.dateFixed ? `окно с ${formatDate(e.targetDate)}` : formatDate(e.targetDate)}
-              </td>
-              <td className="px-3 py-2 text-muted">
-                {EVENT_STAGE_LABELS[e.stage as keyof typeof EVENT_STAGE_LABELS]}
-              </td>
-              <td className="px-3 py-2 text-muted">{e.leadName ?? "—"}</td>
-              <td className="px-3 py-2 text-muted">{e.guestName ?? "—"}</td>
-              <td className="px-3 py-2 text-muted">{e.venue ?? "—"}</td>
-              <td className="px-3 py-2">
-                <span className={e.isOverdue ? "font-bold text-danger" : "text-muted"}>
-                  {e.tasksDone}/{e.tasksTotal}
+    <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
+      {events.map((e) => {
+        const stage = e.stage as keyof typeof EVENT_STAGE_LABELS;
+        const pct = e.tasksTotal ? Math.round((e.tasksDone / e.tasksTotal) * 100) : 0;
+        return (
+          <li key={e.id}>
+            <Link href={`/events/${e.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 hover:bg-surface2">
+              <span className="min-w-0 flex-1 basis-60">
+                <span className="block font-bold text-ink">{e.title}</span>
+                <span className="text-xs text-muted">
+                  {e.targetDate ? (e.dateFixed ? formatDate(e.targetDate) : `окно с ${formatDate(e.targetDate)}`) : "дата не выбрана"}
+                  {e.dateFixed && e.timeSlot ? ` · ${e.timeSlot}` : ""}
+                  {e.leadName ? ` · лид: ${e.leadName}` : ""}
                 </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+              </span>
+              <span className="flex items-center gap-1.5 text-xs text-muted">
+                <span className={clsx("h-2 w-2 rounded-full", EVENT_STAGE_DOT_CLASSES[stage])} />
+                {EVENT_STAGE_LABELS[stage]}
+              </span>
+              {e.tasksTotal > 0 && (
+                <span className="flex w-28 items-center gap-2">
+                  <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
+                    <span className={clsx("block h-full rounded-full", e.isOverdue ? "bg-danger" : "bg-success")} style={{ width: `${pct}%` }} />
+                  </span>
+                  <span className={clsx("text-xs", e.isOverdue ? "font-bold text-danger" : "text-muted")}>
+                    {e.tasksDone}/{e.tasksTotal}
+                  </span>
+                </span>
+              )}
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

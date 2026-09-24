@@ -42,19 +42,20 @@ function payloadDetail(payload: unknown): string | null {
 }
 
 export function HistoryTab({ event }: { event: EventDetail }) {
-  if (event.activityLogs.length === 0) {
-    return <p className="text-sm text-muted">История пуста.</p>;
-  }
+  if (event.activityLogs.length === 0) return null;
   return (
-    <ul className="space-y-2">
+    <details>
+      <summary className="cursor-pointer text-sm font-bold text-ink">История изменений ({event.activityLogs.length})</summary>
+      <ul className="mt-2 space-y-1.5">
       {event.activityLogs.map((log) => (
-        <li key={log.id} className="rounded border border-line bg-surface px-3 py-2 text-sm">
+        <li key={log.id} className="rounded bg-bg px-3 py-1.5 text-xs">
           <span className="text-muted">{formatDateTime(log.createdAt)}</span>{" "}
           <span className="text-ink">{ACTION_LABELS[log.action] ?? log.action}</span>
           {payloadDetail(log.payload) && <span className="text-muted">: {payloadDetail(log.payload)}</span>}
           {log.user && <span className="text-muted"> — {displayName(log.user)}</span>}
         </li>
       ))}
-    </ul>
+      </ul>
+    </details>
   );
 }

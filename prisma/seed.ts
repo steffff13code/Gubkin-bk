@@ -1,7 +1,6 @@
 import { PrismaClient, type DepartmentCode, type DepartmentPosition } from "@prisma/client";
 import { LECTURE_TEMPLATE, LECTURE_TEMPLATE_VERSION } from "../lib/tasks/lecture-template";
 import { buildTaskRows, type DepartmentAssignments } from "../lib/tasks/generate";
-import { REGULATIONS, REGULATIONS_VERSION } from "./regulations-seed-data";
 import { ensureRolePasswords } from "../lib/role-passwords";
 import { deleteDemoData } from "../lib/demo";
 import { addDays, calendarDay } from "../lib/time";
@@ -113,28 +112,6 @@ async function seedDemo() {
   await demoEvent({ title: "Лекция с гостем: пример", daysAhead: 16, adminId: demoAdmin.id, leadId: guestsHead, guest: "Иван Гостев" });
   await demoEvent({ title: "Лекция сегодня: пример дня мероприятия", daysAhead: 0, adminId: demoAdmin.id, leadId: guestsHead, guest: "Мария Спикерова" });
 
-  console.log("Демо: идеи...");
-  const ideas = [
-    {
-      text: "Делать общий чат для новых участников клуба с приветственным сообщением и ссылками на регламенты.",
-      category: "IDEA" as const,
-      authorId: people["Участник Гостей"],
-      targetDepartment: null
-    },
-    {
-      text: "На последней лекции звук был тихим в задних рядах — нужен второй динамик или колонка.",
-      category: "CRITIQUE" as const,
-      authorId: null,
-      targetDepartment: "STAGE" as const
-    },
-    {
-      text: "Стоит завести шаблон сторис для анонсов, чтобы пиар не собирал макет с нуля каждый раз.",
-      category: "OTHER" as const,
-      authorId: null,
-      targetDepartment: "PR" as const
-    }
-  ];
-  for (const idea of ideas) await prisma.idea.create({ data: { ...idea, isDemo: true } });
 }
 
 async function main() {
@@ -194,44 +171,6 @@ async function main() {
     create: { key: "demo:version", value: DEMO_VERSION },
     update: { value: DEMO_VERSION }
   });
-
-  console.log("Регламенты...");
-  const regKey = "regulations:version";
-  const regVersion = await prisma.appSetting.findUnique({ where: { key: regKey } });
-  const upgradeRegulations = regVersion?.value !== REGULATIONS_VERSION;
-  for (const r of REGULATIONS) {
-    const existing = await prisma.regulation.findUnique({ where: { slug: r.slug } });
-    if (!existing) {
-      await prisma.regulation.create({
-        data: {
-          slug: r.slug,
-          title: r.title,
-          department: r.department,
-          body: r.body,
-          sortOrder: r.sortOrder,
-          updatedById: admin.id
-        }
-      });
-    } else if (upgradeRegulations && existing.body !== r.body) {
-      // Новая редакция регламента клуба: прежний текст уходит в историю версий.
-      await prisma.$transaction([
-        prisma.regulationVersion.create({
-          data: { regulationId: existing.id, body: existing.body, editedById: existing.updatedById, createdAt: existing.updatedAt }
-        }),
-        prisma.regulation.update({
-          where: { id: existing.id },
-          data: { title: r.title, department: r.department, body: r.body, sortOrder: r.sortOrder, updatedById: admin.id }
-        })
-      ]);
-    }
-  }
-  if (upgradeRegulations) {
-    await prisma.appSetting.upsert({
-      where: { key: regKey },
-      create: { key: regKey, value: REGULATIONS_VERSION },
-      update: { value: REGULATIONS_VERSION }
-    });
-  }
 
   console.log("Сид завершён.");
 }

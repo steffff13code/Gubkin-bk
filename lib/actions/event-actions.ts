@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import type { EventStage, EventType } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { friendlyError } from "@/lib/errors";
 import { canManageEvent, PermissionError, requireRole, requireUser } from "@/lib/permissions";
 import { checkStageEntry, type EventForStageCheck } from "@/lib/stages";
 import { fireTaskTrigger, generateTasksForEvent, markDateFixed, recalcTasksOnDateChange } from "@/lib/tasks/service";
@@ -22,7 +23,7 @@ async function runOrRedirect(eventId: string, tab: string, fn: () => Promise<voi
   try {
     await fn();
   } catch (e) {
-    error = e instanceof Error ? e.message : "Не удалось выполнить действие.";
+    error = friendlyError(e, "Не удалось выполнить действие.");
   }
   goBack(eventId, tab, error ?? undefined);
 }
@@ -361,35 +362,9 @@ export async function deleteEventAction(eventId: string): Promise<void> {
       })
     ]);
   } catch (e) {
-    error = e instanceof Error ? e.message : "Не удалось удалить мероприятие.";
+    error = friendlyError(e, "Не удалось удалить мероприятие.");
   }
   if (error) goBack(eventId, "obzor", error);
   redirect("/");
 }
 
-export async function addEventMemberAction(eventId: string, formData: FormData): Promise<void> {
-  await runOrRedirect(eventId, "obzor", async () => {
-    const user = await requireUser();
-    const event = await loadEventOrThrow(eventId);
-    if (!canManageEvent(user, event)) throw new PermissionError("Изменять состав может только лид мероприятия или руководитель клуба.");
-
-    const userId = String(formData.get("userId") || "");
-    const roleInEvent = String(formData.get("roleInEvent") || "").trim();
-    if (!userId || !roleInEvent) throw new Error("Выберите человека и укажите его роль.");
-
-    await prisma.eventMember.upsert({
-      where: { eventId_userId: { eventId, userId } },
-      create: { eventId, userId, roleInEvent },
-      update: { roleInEvent }
-    });
-  });
-}
-
-export async function removeEventMemberAction(eventId: string, memberId: string): Promise<void> {
-  await runOrRedirect(eventId, "obzor", async () => {
-    const user = await requireUser();
-    const event = await loadEventOrThrow(eventId);
-    if (!canManageEvent(user, event)) throw new PermissionError("Изменять состав может только лид мероприятия или руководитель клуба.");
-    await prisma.eventMember.delete({ where: { id: memberId } });
-  });
-}

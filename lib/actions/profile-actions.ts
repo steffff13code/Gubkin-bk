@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { friendlyError } from "@/lib/errors";
 import { requireUser } from "@/lib/permissions";
 
 export async function updateProfileAction(formData: FormData): Promise<void> {
@@ -13,7 +14,7 @@ export async function updateProfileAction(formData: FormData): Promise<void> {
     if (!firstName) throw new Error("Имя не может быть пустым.");
     await prisma.user.update({ where: { id: user.id }, data: { firstName, lastName } });
   } catch (e) {
-    error = e instanceof Error ? e.message : "Не удалось сохранить.";
+    error = friendlyError(e, "Не удалось сохранить.");
   }
   redirect(error ? `/profile?error=${encodeURIComponent(error)}` : "/profile?saved=1");
 }

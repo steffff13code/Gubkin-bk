@@ -1,12 +1,10 @@
 import type { EventDetail } from "@/lib/queries/event-detail";
-import { getPastRetros } from "@/lib/queries/event-detail";
 import { renderMarkdown } from "@/lib/markdown";
 import { displayName } from "@/lib/auth";
 import { EVENT_TYPE_LABELS, GUEST_STATUS_LABELS } from "@/lib/labels";
-import { formatDate } from "@/lib/time";
-import { addEventMemberAction, removeEventMemberAction, updateOverviewAction } from "@/lib/actions/event-actions";
+import { updateOverviewAction } from "@/lib/actions/event-actions";
 
-export async function OverviewTab({
+export function OverviewTab({
   event,
   canManage,
   users
@@ -15,8 +13,6 @@ export async function OverviewTab({
   canManage: boolean;
   users: { id: string; firstName: string; lastName: string | null }[];
 }) {
-  const pastRetros = await getPastRetros(event.type, event.id);
-
   return (
     <div className="space-y-6">
       <section className="rounded border border-line bg-surface p-4">
@@ -47,75 +43,9 @@ export async function OverviewTab({
         )}
       </section>
 
-      <section className="rounded border border-line bg-surface p-4">
-        <h2 className="mb-2 text-sm font-bold text-ink">Состав</h2>
-        <ul className="space-y-1">
-          {event.members.map((m) => (
-            <li key={m.id} className="flex items-center justify-between text-sm text-ink">
-              <span>
-                {displayName(m.user)} — {m.roleInEvent}
-              </span>
-              {canManage && (
-                <form action={removeEventMemberAction.bind(null, event.id, m.id)}>
-                  <button type="submit" className="text-xs text-muted hover:text-danger">
-                    Убрать
-                  </button>
-                </form>
-              )}
-            </li>
-          ))}
-          {event.members.length === 0 && <p className="text-sm text-muted">Состав пока не заполнен.</p>}
-        </ul>
-        {canManage && (
-          <form action={addEventMemberAction.bind(null, event.id)} className="mt-3 flex flex-wrap gap-2">
-            <select name="userId" required className="rounded border border-line bg-bg px-2 py-1 text-sm">
-              <option value="">Выберите человека</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {displayName(u)}
-                </option>
-              ))}
-            </select>
-            <input
-              name="roleInEvent"
-              required
-              placeholder="Роль, напр. «встречает гостя»"
-              className="rounded border border-line bg-bg px-2 py-1 text-sm"
-            />
-            <button type="submit" className="rounded border border-line px-3 py-1 text-sm font-bold text-ink">
-              Добавить
-            </button>
-          </form>
-        )}
-      </section>
-
-      {pastRetros.length > 0 && (
-        <section className="rounded border border-line bg-surface p-4">
-          <h2 className="mb-2 text-sm font-bold text-ink">Ретро прошлых мероприятий этого типа</h2>
-          <div className="space-y-3">
-            {pastRetros.map((e) => (
-              <div key={e.id} className="rounded border border-line bg-bg p-2 text-sm">
-                <p className="font-bold text-ink">
-                  {e.title} · {formatDate(e.closedAt)}
-                </p>
-                <p className="mt-1 text-muted">
-                  <span className="font-bold text-ink">Хорошо:</span> {e.retro?.wentWell}
-                </p>
-                <p className="mt-1 text-muted">
-                  <span className="font-bold text-ink">Плохо:</span> {e.retro?.wentWrong}
-                </p>
-                <p className="mt-1 text-muted">
-                  <span className="font-bold text-ink">По-другому:</span> {e.retro?.doDifferently}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
       {canManage && (
         <details className="rounded border border-line bg-surface p-4">
-          <summary className="cursor-pointer text-sm font-bold text-ink">Редактировать</summary>
+          <summary className="cursor-pointer text-sm font-bold text-gold">Изменить данные мероприятия</summary>
           <form action={updateOverviewAction.bind(null, event.id)} className="mt-3 space-y-3">
             <div>
               <label className="mb-1 block text-xs text-muted">Название</label>

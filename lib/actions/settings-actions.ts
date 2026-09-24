@@ -12,6 +12,7 @@ import type {
   TaskTriggerType
 } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { friendlyError } from "@/lib/errors";
 import { requireRole } from "@/lib/permissions";
 import { LOGIN_ROLES, setRolePassword, type LoginRole } from "@/lib/role-passwords";
 import { ROLE_LABELS } from "@/lib/labels";
@@ -23,7 +24,7 @@ async function runOrRedirect(tab: "people" | "templates" | "access", fn: () => P
   try {
     notice = (await fn()) || null;
   } catch (e) {
-    error = e instanceof Error ? e.message : "Не удалось выполнить действие.";
+    error = friendlyError(e);
   }
   const params = new URLSearchParams({ tab });
   if (error) params.set("error", error);
@@ -161,7 +162,9 @@ export async function createTaskTemplateAction(formData: FormData): Promise<void
 export async function updateTaskTemplateAction(templateId: string, formData: FormData): Promise<void> {
   await runOrRedirect("templates", async () => {
     await requireRole("ADMIN");
-    const data = templateDataFromForm(formData);
+    // Тип мероприятия у существующей задачи шаблона не меняется — в форме правки его нет.
+    const { eventType: _eventType, ...data } = templateDataFromForm(formData);
+    void _eventType;
     if (!data.title) throw new Error("Название не может быть пустым.");
     await prisma.taskTemplate.update({ where: { id: templateId }, data });
   });

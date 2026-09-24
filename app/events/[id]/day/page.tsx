@@ -8,8 +8,6 @@ import { calendarDay, formatDate, formatDateLong } from "@/lib/time";
 import { scheduleDay } from "@/lib/event-day";
 import { markDoneAction } from "@/lib/actions/event-actions";
 import { DayTimeline, type TimelineStep } from "@/components/events/day-timeline";
-import { FLOWS } from "@/lib/regulation-flows";
-import { RegulationFlow } from "@/components/regulation-flow";
 
 export const dynamic = "force-dynamic";
 
@@ -99,10 +97,6 @@ export default async function EventDayPage({ params }: { params: { id: string } 
           </p>
         </form>
       )}
-
-      <div className="mt-6">
-        <RegulationFlow flow={FLOWS["event-day"]} compact href="/regulations/event-day" />
-      </div>
     </div>
   );
 }
