@@ -41,6 +41,7 @@ export async function getEventsList(filters: EventFilters): Promise<EventListIte
     where.OR = [
       { leadId: filters.currentUserId },
       { tasks: { some: { assigneeId: filters.currentUserId } } },
+      { tasks: { some: { secondAssigneeId: filters.currentUserId } } },
       { members: { some: { userId: filters.currentUserId } } }
     ];
   }

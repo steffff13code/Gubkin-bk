@@ -1,18 +1,42 @@
 import { prisma } from "@/lib/db";
-import { formatDate, isDueSoon, isOverdue } from "@/lib/time";
-import { notifyOnce, NOTIFICATION_KIND } from "@/lib/notifications/notify";
+import { calendarDay, formatDate, isDueSoon, isOverdue } from "@/lib/time";
+import { notifyOnce, NOTIFICATION_KIND, type Delivery } from "@/lib/notifications/notify";
+
+export type DigestInput = {
+  overdue: { title: string; eventTitle: string; dueDate: Date | null }[];
+  dueSoon: { title: string; eventTitle: string; dueDate: Date | null }[];
+  ledWithOverdue: { eventTitle: string; overdueCount: number }[];
+};
+
+/** Текст дайджеста; null — сказать нечего, ничего не отправляем. */
+export function composeDigest(input: DigestInput): string | null {
+  if (input.overdue.length === 0 && input.dueSoon.length === 0 && input.ledWithOverdue.length === 0) return null;
+
+  const lines: string[] = ["Доброе утро! Ваш дайджест на сегодня:"];
+  if (input.overdue.length > 0) {
+    lines.push(`\nПросрочено (${input.overdue.length}):`);
+    for (const t of input.overdue) lines.push(`• ${t.title} — «${t.eventTitle}» (срок был ${formatDate(t.dueDate)})`);
+  }
+  if (input.dueSoon.length > 0) {
+    lines.push(`\nБлижайшие 2 дня (${input.dueSoon.length}):`);
+    for (const t of input.dueSoon) lines.push(`• ${t.title} — «${t.eventTitle}» (срок ${formatDate(t.dueDate)})`);
+  }
+  if (input.ledWithOverdue.length > 0) {
+    lines.push(`\nВаши мероприятия с просрочками:`);
+    for (const x of input.ledWithOverdue) lines.push(`• «${x.eventTitle}» — просроченных задач: ${x.overdueCount}`);
+  }
+  return lines.join("\n");
+}
 
 /** Раздел 8, п. 1: ежедневный дайджест в 09:00 МСК. Молчим, если сказать нечего. */
-export async function runDigest(now: Date = new Date()): Promise<void> {
-  const dateKey = now.toISOString().slice(0, 10);
+export async function runDigest(now: Date = new Date()): Promise<Delivery[]> {
+  const dateKey = calendarDay(now).toISOString().slice(0, 10);
   const users = await prisma.user.findMany({ where: { botStarted: true, isActive: true } });
+  const deliveries: Delivery[] = [];
 
   for (const user of users) {
     const myTasks = await prisma.task.findMany({
-      where: {
-        status: "TODO",
-        OR: [{ assigneeId: user.id }, { secondAssigneeId: user.id }]
-      },
+      where: { status: "TODO", OR: [{ assigneeId: user.id }, { secondAssigneeId: user.id }] },
       include: { event: true }
     });
     const overdue = myTasks.filter((t) => t.required && isOverdue(t.dueDate, now));
@@ -23,26 +47,20 @@ export async function runDigest(now: Date = new Date()): Promise<void> {
       include: { tasks: true }
     });
     const ledWithOverdue = ledEvents
-      .map((e) => ({ event: e, overdueCount: e.tasks.filter((t) => t.status === "TODO" && t.required && isOverdue(t.dueDate, now)).length }))
+      .map((e) => ({
+        eventTitle: e.title,
+        overdueCount: e.tasks.filter((t) => t.status === "TODO" && t.required && isOverdue(t.dueDate, now)).length
+      }))
       .filter((x) => x.overdueCount > 0);
 
-    if (overdue.length === 0 && dueSoon.length === 0 && ledWithOverdue.length === 0) continue;
+    const text = composeDigest({
+      overdue: overdue.map((t) => ({ title: t.title, eventTitle: t.event.title, dueDate: t.dueDate })),
+      dueSoon: dueSoon.map((t) => ({ title: t.title, eventTitle: t.event.title, dueDate: t.dueDate })),
+      ledWithOverdue
+    });
+    if (!text) continue;
 
-    const lines: string[] = ["Доброе утро! Ваш дайджест на сегодня:"];
-
-    if (overdue.length > 0) {
-      lines.push(`\nПросрочено (${overdue.length}):`);
-      for (const t of overdue) lines.push(`• ${t.title} — «${t.event.title}» (срок был ${formatDate(t.dueDate)})`);
-    }
-    if (dueSoon.length > 0) {
-      lines.push(`\nБлижайшие 2 дня (${dueSoon.length}):`);
-      for (const t of dueSoon) lines.push(`• ${t.title} — «${t.event.title}» (срок ${formatDate(t.dueDate)})`);
-    }
-    if (ledWithOverdue.length > 0) {
-      lines.push(`\nВаши мероприятия с просрочками:`);
-      for (const x of ledWithOverdue) lines.push(`• «${x.event.title}» — просроченных задач: ${x.overdueCount}`);
-    }
-
-    await notifyOnce(user.id, NOTIFICATION_KIND.DIGEST, `digest:${user.id}:${dateKey}`, lines.join("\n"), now);
+    deliveries.push(await notifyOnce(user.id, NOTIFICATION_KIND.DIGEST, `digest:${user.id}:${dateKey}`, text, now));
   }
+  return deliveries;
 }

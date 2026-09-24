@@ -66,7 +66,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
-    autoComplete: null,
+    autoComplete: "DATE_FIXED",
     group: "BEFORE",
     sortOrder: 40
   },

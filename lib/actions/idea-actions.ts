@@ -64,6 +64,13 @@ export async function setIdeaStatusAction(ideaId: string, formData: FormData): P
   });
 }
 
+export async function deleteIdeaAction(ideaId: string): Promise<void> {
+  await runOrRedirect(async () => {
+    await requireRole("ADMIN");
+    await prisma.idea.delete({ where: { id: ideaId } });
+  });
+}
+
 export async function convertIdeaToEventAction(ideaId: string, formData: FormData): Promise<void> {
   await runOrRedirect(async () => {
     const user = await requireRole("ADMIN");

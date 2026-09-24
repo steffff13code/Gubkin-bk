@@ -1,4 +1,4 @@
-import { startOfUtcDay } from "@/lib/time";
+import { calendarDay } from "@/lib/time";
 
 // Условия входа в стадии — раздел 6 ТЗ. Чистые функции без обращения к БД,
 // чтобы их можно было проверить юнит-тестами.
@@ -53,7 +53,7 @@ export function checkStageEntry(
       if (!event.targetDate) {
         return "Чтобы отметить мероприятие проведённым, сначала зафиксируйте дату.";
       }
-      if (startOfUtcDay(now).getTime() < startOfUtcDay(event.targetDate).getTime()) {
+      if (calendarDay(now).getTime() < calendarDay(event.targetDate).getTime()) {
         return "Чтобы отметить мероприятие проведённым, дождитесь даты мероприятия.";
       }
       return null;

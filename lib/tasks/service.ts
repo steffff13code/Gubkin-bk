@@ -6,7 +6,7 @@ import {
   recalcDueDatesOnDateChange,
   type DepartmentAssignments
 } from "@/lib/tasks/generate";
-import { startOfUtcDay } from "@/lib/time";
+import { calendarDay } from "@/lib/time";
 
 async function loadDepartmentAssignments(): Promise<DepartmentAssignments> {
   const rows = await prisma.userDepartment.findMany({
@@ -23,7 +23,7 @@ async function loadDepartmentAssignments(): Promise<DepartmentAssignments> {
 }
 
 /** Разворачивает план задач по шаблону типа мероприятия. Вызывается один раз, когда dateFixed становится true. */
-export async function generateTasksForEvent(eventId: string, now: Date = new Date()) {
+export async function generateTasksForEvent(eventId: string, actorId: string | null = null, now: Date = new Date()) {
   const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId } });
   if (!event.targetDate) {
     throw new Error("У мероприятия не задана дата — план не может быть развёрнут.");
@@ -43,8 +43,10 @@ export async function generateTasksForEvent(eventId: string, now: Date = new Dat
 
   await prisma.task.createMany({ data: rows.map((r) => ({ eventId, ...r })) });
   await prisma.activityLog.create({
-    data: { eventId, action: "TASKS_GENERATED", payload: { count: rows.length } }
+    data: { eventId, userId: actorId, action: "TASKS_GENERATED", payload: { count: rows.length } }
   });
+  // «Зафиксировать дату с гостем» выполнена по определению: план разворачивается фиксацией даты.
+  await autoCompleteTasks(eventId, "DATE_FIXED", actorId);
 }
 
 /** Перенос даты мероприятия: пересчитывает сроки открытых DATE_OFFSET-задач, закрытые не трогает. */
@@ -74,7 +76,7 @@ export async function fireTaskTrigger(eventId: string, triggerEvent: TaskTrigger
   const pending = await prisma.task.findMany({
     where: { eventId, triggerEvent, dueDate: null }
   });
-  const updates = applyTriggerDueDates(pending, triggerEvent, startOfUtcDay(firedAt));
+  const updates = applyTriggerDueDates(pending, triggerEvent, calendarDay(firedAt));
   if (updates.length === 0) return;
 
   await prisma.$transaction(
@@ -86,7 +88,7 @@ export async function fireTaskTrigger(eventId: string, triggerEvent: TaskTrigger
 }
 
 /** Автозакрытие задач, чьё состояние уже наступило в карточке (фотоотчёт прикреплён, ретро заполнено). */
-export async function autoCompleteTasks(eventId: string, reason: TaskAutoComplete, actorId: string) {
+export async function autoCompleteTasks(eventId: string, reason: TaskAutoComplete, actorId: string | null) {
   const pending = await prisma.task.findMany({ where: { eventId, autoComplete: reason, status: "TODO" } });
   if (pending.length === 0) return;
   const now = new Date();

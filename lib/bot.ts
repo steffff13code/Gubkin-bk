@@ -33,13 +33,21 @@ export function getBot(): Bot | null {
   return botInstance;
 }
 
-export async function sendTelegramMessage(telegramId: string, text: string): Promise<void> {
+/** true — доставлено; false — бот не настроен или Telegram отказал (запись в лог не делаем, попробуем в следующий тик). */
+export async function sendTelegramMessage(telegramId: string, text: string): Promise<boolean> {
+  // Сухой прогон для локальной проверки правил без бота: считаем доставленным, печатаем в консоль.
+  if (process.env.TELEGRAM_DRY_RUN === "1") {
+    console.log(`[telegram dry-run] → ${telegramId}: ${text.replace(/\n/g, " | ")}`);
+    return true;
+  }
   const bot = getBot();
-  if (!bot) return;
+  if (!bot) return false;
   try {
     await bot.api.sendMessage(telegramId, text);
+    return true;
   } catch (e) {
     console.error(`Не удалось отправить сообщение в Telegram (${telegramId}):`, e);
+    return false;
   }
 }
 

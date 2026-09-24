@@ -41,6 +41,22 @@ export function startOfUtcDay(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
 
+/**
+ * Календарная дата момента по Москве, представленная как полночь UTC —
+ * в таком же виде хранятся сроки задач и даты мероприятий. Так «сегодня»
+ * для просрочек и календаря совпадает с тем, что видит организатор в Москве,
+ * а не сдвинуто на три часа.
+ */
+export function calendarDay(date: Date): Date {
+  const ymd = new Intl.DateTimeFormat("en-CA", {
+    timeZone: MOSCOW_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(date);
+  return new Date(`${ymd}T00:00:00.000Z`);
+}
+
 export function addDays(date: Date, days: number): Date {
   const d = new Date(date);
   d.setUTCDate(d.getUTCDate() + days);
@@ -48,13 +64,13 @@ export function addDays(date: Date, days: number): Date {
 }
 
 export function daysBetween(a: Date, b: Date): number {
-  const ms = startOfUtcDay(b).getTime() - startOfUtcDay(a).getTime();
+  const ms = calendarDay(b).getTime() - calendarDay(a).getTime();
   return Math.round(ms / (1000 * 60 * 60 * 24));
 }
 
 export function isOverdue(dueDate: Date | null, now: Date = new Date()): boolean {
   if (!dueDate) return false;
-  return startOfUtcDay(dueDate).getTime() < startOfUtcDay(now).getTime();
+  return calendarDay(dueDate).getTime() < calendarDay(now).getTime();
 }
 
 export function isDueSoon(dueDate: Date | null, now: Date = new Date(), withinDays = 2): boolean {

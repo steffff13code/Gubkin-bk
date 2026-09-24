@@ -1,6 +1,6 @@
 import Link from "next/link";
 import clsx from "clsx";
-import { getMonthGrid, MONTH_LABELS_RU, WEEKDAY_LABELS_RU, startOfUtcDay } from "@/lib/time";
+import { calendarDay, getMonthGrid, MONTH_LABELS_RU, WEEKDAY_LABELS_RU, startOfUtcDay } from "@/lib/time";
 import type { EventListItem } from "@/lib/queries/events";
 
 function buildMonthHref(baseParams: URLSearchParams, year: number, month: number) {
@@ -21,7 +21,7 @@ export function CalendarView({
   searchParams: Record<string, string | undefined>;
 }) {
   const weeks = getMonthGrid(year, month);
-  const today = startOfUtcDay(new Date()).getTime();
+  const today = calendarDay(new Date()).getTime();
 
   const eventsByDay = new Map<string, EventListItem[]>();
   for (const e of events) {

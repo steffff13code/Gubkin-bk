@@ -112,6 +112,7 @@ export const TASK_TRIGGER_TYPE_LABELS: Record<TaskTriggerType, string> = {
 };
 
 export const TASK_AUTO_COMPLETE_LABELS: Record<TaskAutoComplete, string> = {
+  DATE_FIXED: "в момент фиксации даты (план развёрнут — значит, дата есть)",
   PHOTO_REPORT_ATTACHED: "когда прикреплён фотоотчёт",
   RETRO_SAVED: "когда заполнено ретро и посещаемость"
 };

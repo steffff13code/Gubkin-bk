@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { addDays, daysBetween } from "@/lib/time";
-import { notifyOnce, NOTIFICATION_KIND } from "@/lib/notifications/notify";
+import { notifyOnce, NOTIFICATION_KIND, type Delivery } from "@/lib/notifications/notify";
 
 export const STOPLIST_TITLE_PREFIX = "Стоп-лист";
 
@@ -9,7 +9,8 @@ export const STOPLIST_TITLE_PREFIX = "Стоп-лист";
  * обязательных задач, кладёт его в задачу «Стоп-лист» лида (создаёт её, если
  * шаблон её не содержит) и отправляет лиду и администраторам.
  */
-export async function runStoplistCheck(now: Date = new Date()): Promise<void> {
+export async function runStoplistCheck(now: Date = new Date()): Promise<Delivery[]> {
+  const deliveries: Delivery[] = [];
   const events = await prisma.event.findMany({
     where: { stage: "IN_PROGRESS", dateFixed: true, targetDate: { not: null } },
     include: { tasks: true }
@@ -54,7 +55,8 @@ export async function runStoplistCheck(now: Date = new Date()): Promise<void> {
     if (event.leadId) recipients.add(event.leadId);
 
     for (const userId of recipients) {
-      await notifyOnce(userId, NOTIFICATION_KIND.STOPLIST, `stoplist:${event.id}:${dateKey}:${userId}`, text, now);
+      deliveries.push(await notifyOnce(userId, NOTIFICATION_KIND.STOPLIST, `stoplist:${event.id}:${dateKey}:${userId}`, text, now));
     }
   }
+  return deliveries;
 }

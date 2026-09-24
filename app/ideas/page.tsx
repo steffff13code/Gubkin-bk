@@ -7,6 +7,7 @@ import { formatDate } from "@/lib/time";
 import {
   convertIdeaToEventAction,
   createIdeaAction,
+  deleteIdeaAction,
   setIdeaStatusAction,
   voteIdeaAction
 } from "@/lib/actions/idea-actions";
@@ -68,16 +69,27 @@ export default async function IdeasPage({ searchParams }: { searchParams: { erro
           <div key={idea.id} className="rounded border border-line bg-surface p-4">
             <div className="flex items-start justify-between gap-2">
               <p className="text-sm text-ink">{idea.text}</p>
-              <form action={voteIdeaAction.bind(null, idea.id)}>
-                <button
-                  type="submit"
-                  className={`shrink-0 rounded border px-2 py-1 text-xs font-bold ${
-                    idea.hasVoted ? "border-gold bg-gold/10 text-ink" : "border-line text-muted"
-                  }`}
+              {user ? (
+                <form action={voteIdeaAction.bind(null, idea.id)}>
+                  <button
+                    type="submit"
+                    title={idea.hasVoted ? "Снять голос" : "Поддержать"}
+                    className={`shrink-0 rounded border px-2 py-1 text-xs font-bold ${
+                      idea.hasVoted ? "border-gold bg-gold/10 text-ink" : "border-line text-muted"
+                    }`}
+                  >
+                    ▲ {idea.voteCount}
+                  </button>
+                </form>
+              ) : (
+                <Link
+                  href="/login"
+                  title="Войдите, чтобы голосовать"
+                  className="shrink-0 rounded border border-line px-2 py-1 text-xs font-bold text-muted"
                 >
                   ▲ {idea.voteCount}
-                </button>
-              </form>
+                </Link>
+              )}
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
               <span>{IDEA_CATEGORY_LABELS[idea.category]}</span>
@@ -109,6 +121,11 @@ export default async function IdeasPage({ searchParams }: { searchParams: { erro
                   />
                   <button type="submit" className="rounded border border-line px-2 py-1 text-xs font-bold text-ink">
                     Сохранить
+                  </button>
+                </form>
+                <form action={deleteIdeaAction.bind(null, idea.id)} className="mt-2">
+                  <button type="submit" className="text-xs text-danger underline">
+                    Удалить идею
                   </button>
                 </form>
                 {idea.convertedEventId ? (

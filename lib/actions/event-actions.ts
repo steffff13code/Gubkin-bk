@@ -68,8 +68,14 @@ export async function createEventAction(formData: FormData): Promise<void> {
   const type = String(formData.get("type") || "") as EventType;
   const description = String(formData.get("description") || "").trim();
 
+  const leadId = String(formData.get("leadId") || "") || user.id;
+  const sendNow = formData.get("intent") === "send";
+
   if (!title || !type) {
-    goBack("new", "obzor", "Заполните название и тип мероприятия.");
+    redirect(`/events/new?error=${encodeURIComponent("Заполните название и тип мероприятия.")}`);
+  }
+  if (sendNow && !description) {
+    redirect(`/events/new?error=${encodeURIComponent("Чтобы отправить на согласование, заполните описание.")}`);
   }
 
   const event = await prisma.event.create({
@@ -77,13 +83,17 @@ export async function createEventAction(formData: FormData): Promise<void> {
       title,
       type,
       description: description || null,
-      leadId: user.id,
+      leadId,
       createdById: user.id,
-      stage: "IDEA",
+      stage: sendNow ? "APPROVAL" : "IDEA",
       stageChangedAt: new Date()
     }
   });
   await prisma.activityLog.create({ data: { eventId: event.id, userId: user.id, action: "CREATED" } });
+  if (sendNow) {
+    await prisma.activityLog.create({ data: { eventId: event.id, userId: user.id, action: "SENT_TO_APPROVAL" } });
+    await notifyAdminsOfApproval(event.id);
+  }
   redirect(`/events/${event.id}`);
 }
 
@@ -97,6 +107,14 @@ export async function updateOverviewAction(eventId: string, formData: FormData):
     const requestedType = String(formData.get("type") || "") as EventType | "";
     // Тип определяет шаблон задач — менять его после разворачивания плана нельзя.
     const type = requestedType && requestedType !== event.type && event._count.tasks === 0 ? requestedType : event.type;
+
+    if (leadId !== event.leadId && event.leadId) {
+      // Задачи «без отдела» — задачи лида: открытые переходят к новому лиду.
+      await prisma.task.updateMany({
+        where: { eventId, status: "TODO", department: null, assigneeId: event.leadId },
+        data: { assigneeId: leadId }
+      });
+    }
 
     await prisma.event.update({
       where: { id: eventId },
@@ -160,7 +178,7 @@ export async function returnToIdeaAction(eventId: string, formData: FormData): P
   await runOrRedirect(eventId, "obzor", async () => {
     const user = await requireRole("ADMIN");
     const event = await loadEventOrThrow(eventId);
-    assertStage(event, ["APPROVAL"]);
+    assertStage(event, ["APPROVAL", "REJECTED"]);
     const comment = String(formData.get("comment") || "").trim();
     if (!comment) throw new Error("Укажите комментарий: что нужно доработать.");
 
@@ -233,7 +251,7 @@ export async function fixDateAction(eventId: string, formData: FormData): Promis
       if (error) throw new Error(error);
 
       await prisma.event.update({ where: { id: eventId }, data: { ...fields, dateFixed: true } });
-      await generateTasksForEvent(eventId);
+      await generateTasksForEvent(eventId, user.id);
       await prisma.event.update({ where: { id: eventId }, data: { stage: "IN_PROGRESS", stageChangedAt: new Date() } });
       await prisma.activityLog.create({
         data: { eventId, userId: user.id, action: "DATE_FIXED", payload: { targetDate: fields.targetDate.toISOString() } }

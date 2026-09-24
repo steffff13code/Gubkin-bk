@@ -2,6 +2,7 @@ import clsx from "clsx";
 import type { EventDetail } from "@/lib/queries/event-detail";
 import { DEPARTMENT_LABELS, TASK_GROUP_LABELS } from "@/lib/labels";
 import { displayName } from "@/lib/auth";
+import { Avatar } from "@/components/avatar";
 import { formatDate, isOverdue } from "@/lib/time";
 import { assignToMeAction, skipTaskAction, toggleTaskAction, updateTaskAction } from "@/lib/actions/task-actions";
 
@@ -97,9 +98,16 @@ function TaskRow({
             {!task.required && <span className="ml-1 text-xs text-muted">(необязательная)</span>}
           </p>
           <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted">
-            <span className={!task.assigneeId ? "font-bold text-danger" : ""}>
+            <span className={clsx("flex items-center gap-1", !task.assigneeId && "font-bold text-danger")}>
+              {task.assignee && <Avatar name={displayName(task.assignee)} size={16} />}
               {task.assigneeId ? displayName(task.assignee!) : "без исполнителя"}
-              {task.secondAssignee ? ` + ${displayName(task.secondAssignee)}` : ""}
+              {task.secondAssignee && (
+                <>
+                  <span>+</span>
+                  <Avatar name={displayName(task.secondAssignee)} size={16} />
+                  {displayName(task.secondAssignee)}
+                </>
+              )}
             </span>
             <span>{task.dueDate ? formatDate(task.dueDate) : "срок не назначен"}</span>
             {overdue && <span className="rounded bg-danger/10 px-1.5 py-0.5 font-bold text-danger">Просрочено</span>}

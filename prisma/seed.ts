@@ -149,7 +149,14 @@ async function main() {
       if (row.position === "DEPUTY") assignments[code]!.deputyId = row.userId;
     }
     const rows = buildTaskRows(templates, targetDate, now, assignments, event.leadId);
-    await prisma.task.createMany({ data: rows.map((r) => ({ eventId: event.id, ...r })) });
+    await prisma.task.createMany({
+      data: rows.map((r) => ({
+        eventId: event.id,
+        ...r,
+        // Дата в демо-мероприятии уже зафиксирована — задача, закрывающаяся фиксацией, выполнена.
+        ...(r.autoComplete === "DATE_FIXED" ? { status: "DONE" as const, completedAt: now, completedById: guestsHead.id } : {})
+      }))
+    });
     await prisma.activityLog.create({
       data: { eventId: event.id, action: "TASKS_GENERATED", payload: { count: rows.length, seed: true } }
     });

@@ -160,7 +160,22 @@ export function StageActions({
   }
 
   if (event.stage === "REJECTED") {
-    return <p className="text-sm text-danger">Отклонено{event.approvalComment ? `: ${event.approvalComment}` : "."}</p>;
+    return (
+      <div className="space-y-2">
+        <p className="text-sm text-danger">Отклонено{event.approvalComment ? `: ${event.approvalComment}` : "."}</p>
+        {isAdmin && (
+          <details className="inline-block rounded border border-line px-3 py-1.5">
+            <summary className="cursor-pointer text-sm font-bold text-ink">Вернуть в идеи</summary>
+            <form action={returnToIdeaAction.bind(null, event.id)} className="mt-2 space-y-2">
+              <textarea name="comment" required rows={2} placeholder="Почему возвращаем" className={`w-64 ${input}`} />
+              <button type="submit" className={`block ${ghostBtn}`}>
+                Вернуть
+              </button>
+            </form>
+          </details>
+        )}
+      </div>
+    );
   }
 
   return null;

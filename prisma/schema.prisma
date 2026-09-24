@@ -208,6 +208,7 @@ enum TaskGroup {
 // Задача закрывается сама, когда в карточке появляется соответствующее состояние
 // (принцип 1 ТЗ: статус считается из данных, а не из галочки).
 enum TaskAutoComplete {
+  DATE_FIXED
   PHOTO_REPORT_ATTACHED
   RETRO_SAVED
 }
