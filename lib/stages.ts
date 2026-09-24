@@ -39,18 +39,20 @@ export function checkStageEntry(
       return null;
     }
 
+    // Подготовка стартует с окна дат: по регламенту гостю обещаем окно, а не дату,
+    // заявка в ЦБ уходит до фиксации. Дата фиксируется позже, после ответа ЦБ.
     case "IN_PROGRESS": {
-      if (!event.dateFixed || !event.targetDate) {
-        return "Чтобы зафиксировать дату, укажите дату мероприятия.";
+      if (!event.targetDate) {
+        return "Чтобы запустить подготовку, укажите окно дат с гостем (первый день окна).";
       }
       if (!event.leadId) {
-        return "Чтобы зафиксировать дату, назначьте лида мероприятия.";
+        return "Чтобы запустить подготовку, назначьте лида мероприятия.";
       }
       return null;
     }
 
     case "DONE": {
-      if (!event.targetDate) {
+      if (!event.targetDate || !event.dateFixed) {
         return "Чтобы отметить мероприятие проведённым, сначала зафиксируйте дату.";
       }
       if (calendarDay(now).getTime() < calendarDay(event.targetDate).getTime()) {

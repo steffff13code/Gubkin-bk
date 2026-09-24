@@ -91,38 +91,99 @@ export async function getMyEvents(userId: string) {
   };
 }
 
-/** Для руководителя/зама отдела: задачи отдела без исполнителя и загрузка команды. */
-export async function getDepartmentOverview(departments: DepartmentCode[]) {
+const CHECKLIST_STAGES: EventStage[] = ["IN_PROGRESS", "DONE"];
+
+/**
+ * Чек-лист отдела по каждому мероприятию в работе — видят все люди отдела.
+ * Руководителю и заму дополнительно — загрузка команды.
+ */
+export async function getDepartmentOverview(departments: DepartmentCode[], withTeam: DepartmentCode[] = []) {
   if (departments.length === 0) return [];
-  const [openTasks, people] = await Promise.all([
+  const [tasks, people] = await Promise.all([
     prisma.task.findMany({
-      where: { status: "TODO", department: { in: departments }, event: { stage: { in: LIVE_STAGES } } },
-      include: { event: { select: { id: true, title: true } } },
-      orderBy: [{ dueDate: "asc" }]
+      where: { department: { in: departments }, event: { stage: { in: CHECKLIST_STAGES } } },
+      include: {
+        event: { select: { id: true, title: true, targetDate: true, dateFixed: true, stage: true, leadId: true } },
+        assignee: { select: { id: true, firstName: true, lastName: true } },
+        secondAssignee: { select: { id: true, firstName: true, lastName: true } }
+      },
+      orderBy: [{ event: { targetDate: "asc" } }, { group: "asc" }, { sortOrder: "asc" }]
     }),
-    prisma.userDepartment.findMany({
-      where: { departmentCode: { in: departments }, user: { isActive: true } },
-      include: { user: { select: { id: true, firstName: true, lastName: true } } }
-    })
+    withTeam.length
+      ? prisma.userDepartment.findMany({
+          where: { departmentCode: { in: withTeam }, user: { isActive: true } },
+          include: { user: { select: { id: true, firstName: true, lastName: true } } }
+        })
+      : Promise.resolve([])
   ]);
 
   return departments.map((code) => {
-    const tasks = openTasks.filter((t) => t.department === code);
-    const team = people
-      .filter((p) => p.departmentCode === code)
-      .map((p) => ({
-        ...p.user,
-        position: p.position,
-        open: tasks.filter((t) => t.assigneeId === p.user.id || t.secondAssigneeId === p.user.id).length,
-        overdue: tasks.filter((t) => (t.assigneeId === p.user.id || t.secondAssigneeId === p.user.id) && isOverdue(t.dueDate)).length
-      }));
+    const deptTasks = tasks.filter((t) => t.department === code);
+    const open = deptTasks.filter((t) => t.status === "TODO");
+    const byEvent = new Map<string, { event: (typeof deptTasks)[number]["event"]; tasks: typeof deptTasks }>();
+    for (const t of deptTasks) {
+      const entry = byEvent.get(t.eventId) ?? { event: t.event, tasks: [] };
+      entry.tasks.push(t);
+      byEvent.set(t.eventId, entry);
+    }
+    const team = withTeam.includes(code)
+      ? people
+          .filter((p) => p.departmentCode === code)
+          .map((p) => ({
+            ...p.user,
+            position: p.position,
+            open: open.filter((t) => t.assigneeId === p.user.id || t.secondAssigneeId === p.user.id).length,
+            overdue: open.filter((t) => (t.assigneeId === p.user.id || t.secondAssigneeId === p.user.id) && isOverdue(t.dueDate)).length
+          }))
+      : null;
     return {
       code,
-      unassigned: tasks.filter((t) => !t.assigneeId),
-      overdueCount: tasks.filter((t) => isOverdue(t.dueDate)).length,
-      openCount: tasks.length,
+      events: Array.from(byEvent.values()),
+      unassigned: open.filter((t) => !t.assigneeId),
+      overdueCount: open.filter((t) => isOverdue(t.dueDate)).length,
+      openCount: open.length,
       team
     };
+  });
+}
+
+/** Руководитель клуба видит всё: по каждому мероприятию в работе — прогресс каждого отдела. */
+export async function getClubOverview() {
+  const events = await prisma.event.findMany({
+    where: { stage: { in: ["PLANNING", "IN_PROGRESS", "DONE"] } },
+    include: {
+      lead: { select: { firstName: true, lastName: true } },
+      tasks: { select: { department: true, status: true, required: true, dueDate: true } }
+    },
+    orderBy: [{ targetDate: "asc" }]
+  });
+  return events.map((e) => {
+    const cells: Record<string, { done: number; total: number; overdue: number }> = {};
+    for (const t of e.tasks) {
+      const key = t.department ?? "_";
+      cells[key] ??= { done: 0, total: 0, overdue: 0 };
+      cells[key].total++;
+      if (t.status !== "TODO") cells[key].done++;
+      else if (t.required && isOverdue(t.dueDate)) cells[key].overdue++;
+    }
+    return {
+      id: e.id,
+      title: e.title,
+      stage: e.stage,
+      targetDate: e.targetDate,
+      dateFixed: e.dateFixed,
+      leadName: e.lead ? (e.lead.lastName ? `${e.lead.firstName} ${e.lead.lastName}` : e.lead.firstName) : null,
+      cells
+    };
+  });
+}
+
+/** Мероприятия сегодня (по Москве) с зафиксированной датой — для баннера «сегодня мероприятие». */
+export async function getTodayEvents(now: Date = new Date()) {
+  const today = calendarDay(now);
+  return prisma.event.findMany({
+    where: { stage: { in: ["IN_PROGRESS", "DONE"] }, dateFixed: true, targetDate: today },
+    select: { id: true, title: true, timeSlot: true, venue: true, stage: true }
   });
 }
 

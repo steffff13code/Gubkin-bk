@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   try {
     await requireRole("ADMIN");
   } catch {
-    return NextResponse.json({ error: "Требуются права администратора." }, { status: 403 });
+    return NextResponse.json({ error: "Нужны права руководителя клуба." }, { status: 403 });
   }
 
   const forceDigest = req.nextUrl.searchParams.get("digest") === "1";

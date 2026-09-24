@@ -64,9 +64,16 @@ describe("resolveAssignees", () => {
     });
   });
 
-  it("needsTwoAssignees без зама в отделе — второй остаётся пустым", () => {
+  it("ЦБ без зама — второй в контуре руководитель Гостей (регламент: «в контуре двое»)", () => {
     expect(resolveAssignees("SECURITY", true, assignments, "lead-1")).toEqual({
       assigneeId: "head-security",
+      secondAssigneeId: "head-guests"
+    });
+  });
+
+  it("другой отдел без зама — второй остаётся пустым", () => {
+    expect(resolveAssignees("STAGE", true, { STAGE: { headId: "head-stage", deputyId: null } }, "lead-1")).toEqual({
+      assigneeId: "head-stage",
       secondAssigneeId: null
     });
   });
@@ -83,6 +90,11 @@ describe("initialDueDate", () => {
     const t = template({ triggerType: "EVENT", triggerEvent: "DATE_FIXED", offsetDays: 0 });
     const due = initialDueDate(t, TARGET, NOW);
     expect(due?.toISOString()).toBe("2026-09-15T00:00:00.000Z");
+  });
+
+  it("DATE_FIXED при плане по окну дат (дата не зафиксирована) ждёт фиксации", () => {
+    const t = template({ triggerType: "EVENT", triggerEvent: "DATE_FIXED", offsetDays: 0 });
+    expect(initialDueDate(t, TARGET, NOW, false)).toBeNull();
   });
 
   it("остальные EVENT-триггеры пока не получают срок", () => {
@@ -113,6 +125,18 @@ describe("buildTaskRows", () => {
     expect(rows[0]).toMatchObject({ templateId: "a", assigneeId: "head-guests", status: "TODO" });
     expect(rows[0].dueDate?.toISOString()).toBe("2026-10-06T00:00:00.000Z");
     expect(rows[1]).toMatchObject({ templateId: "b", assigneeId: null, dueDate: null, firesTrigger: "SECURITY_ANSWERED" });
+  });
+
+  it("переносит тайминг дня мероприятия", () => {
+    const rows = buildTaskRows(
+      [template({ group: "EVENT_DAY", offsetDays: 0, dayOffsetMinutes: -120, dayTimeLabel: "−2 часа" })],
+      TARGET,
+      NOW,
+      assignments,
+      "lead-1"
+    );
+    expect(rows[0]).toMatchObject({ dayOffsetMinutes: -120, dayTimeLabel: "−2 часа" });
+    expect(rows[0].dueDate?.toISOString()).toBe(TARGET.toISOString());
   });
 });
 

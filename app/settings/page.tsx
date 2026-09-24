@@ -26,7 +26,7 @@ export default async function SettingsPage({
   if (!isAdmin(user)) {
     return (
       <div className="rounded-xl border border-line bg-surface p-6 text-sm text-muted">
-        Настройки доступны только администраторам.
+        Настройки доступны только руководителю клуба.
       </div>
     );
   }

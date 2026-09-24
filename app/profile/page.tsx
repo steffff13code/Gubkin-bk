@@ -71,7 +71,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: { er
             </p>
           </div>
         ) : (
-          <p className="text-sm text-muted">Бот ещё не настроен администратором платформы.</p>
+          <p className="text-sm text-muted">Бот ещё не подключён к платформе — его подключает руководитель клуба (токен бота в настройках сервера).</p>
         )}
       </section>
 
@@ -87,7 +87,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: { er
       </section>
 
       <p className="text-sm text-muted">
-        Роль и отделы меняет администратор в{" "}
+        Роль и отделы меняет руководитель клуба в{" "}
         {current.role === "ADMIN" ? (
           <Link href="/settings" className="underline hover:text-ink">
             настройках

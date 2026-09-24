@@ -3,6 +3,7 @@ import type { DepartmentCode, EventType } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
 import { isLeadOrAdmin } from "@/lib/permissions";
 import { getEventsList, getLeadOptions } from "@/lib/queries/events";
+import { getTodayEvents } from "@/lib/queries/my-day";
 import { EVENT_STAGE_LABELS } from "@/lib/labels";
 import { FilterBar } from "@/components/events/filter-bar";
 import { ViewTabs } from "@/components/events/view-tabs";
@@ -24,7 +25,7 @@ export default async function HomePage({
     ? searchParams.month.split("-").map(Number)
     : [now.getUTCFullYear(), now.getUTCMonth() + 1];
 
-  const [events, leads] = await Promise.all([
+  const [events, leads, today] = await Promise.all([
     getEventsList({
       type: searchParams.type as EventType | undefined,
       department: searchParams.department as DepartmentCode | undefined,
@@ -34,7 +35,8 @@ export default async function HomePage({
       q: searchParams.q,
       includeRejected: view === "list" && searchParams.rejected === "1"
     }),
-    getLeadOptions()
+    getLeadOptions(),
+    getTodayEvents()
   ]);
 
   const stageCounts = new Map<string, number>();
@@ -49,6 +51,20 @@ export default async function HomePage({
 
   return (
     <div>
+      {today.map((e) => (
+        <Link
+          key={e.id}
+          href={`/events/${e.id}/day`}
+          className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-gold bg-gold/10 px-4 py-3 hover:bg-gold/15"
+        >
+          <span className="rounded bg-gold px-2 py-1 text-xs font-bold uppercase text-bg">Сегодня</span>
+          <span className="min-w-0 flex-1 font-bold text-ink">
+            {e.title}
+            <span className="font-normal text-muted">{e.timeSlot ? ` · ${e.timeSlot}` : ""}{e.venue ? ` · ${e.venue}` : ""}</span>
+          </span>
+          <span className="text-sm font-bold text-gold">Тайминг дня →</span>
+        </Link>
+      ))}
       <div className="mb-1 flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-ink">Поток мероприятий</h1>

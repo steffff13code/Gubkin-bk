@@ -8,7 +8,7 @@ export default async function NewRegulationPage({ searchParams }: { searchParams
   if (!isAdmin(user)) {
     return (
       <div className="rounded border border-line bg-surface p-6 text-sm text-muted">
-        Добавлять регламенты может только администратор. Редактировать существующие — руководители и администраторы.
+        Добавлять регламенты может только руководитель клуба. Редактировать существующие — руководители отделов и клуба.
       </div>
     );
   }

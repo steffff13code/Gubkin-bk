@@ -48,7 +48,7 @@ export async function deleteAttachmentAction(eventId: string, attachmentId: stri
     const attachment = await prisma.attachment.findUnique({ where: { id: attachmentId } });
     if (!attachment) return;
     if (attachment.addedById !== user.id && user.role !== "ADMIN") {
-      throw new Error("Удалить файл может только тот, кто его добавил, или администратор.");
+      throw new Error("Удалить файл может только тот, кто его добавил, или руководитель клуба.");
     }
     await prisma.attachment.delete({ where: { id: attachmentId } });
     await prisma.activityLog.create({

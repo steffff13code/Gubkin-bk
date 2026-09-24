@@ -56,7 +56,6 @@ enum DepartmentCode {
   GUESTS
   SECURITY
   PR
-  VENUE_BOOKING
   CONTENT
   STAGE
   INTENSIVES
@@ -237,6 +236,11 @@ model TaskTemplate {
   group     TaskGroup
   sortOrder Int
 
+  // Тайминг дня мероприятия: минуты относительно начала (−120 = за 2 часа)
+  // и подпись шага («после выступления», «финал»), если точного времени нет.
+  dayOffsetMinutes Int?
+  dayTimeLabel     String?
+
   tasks Task[]
 
   @@index([eventType])
@@ -272,6 +276,9 @@ model Task {
 
   group     TaskGroup
   sortOrder Int
+
+  dayOffsetMinutes Int?
+  dayTimeLabel     String?
 
   completedAt      DateTime?
   completedById    String?

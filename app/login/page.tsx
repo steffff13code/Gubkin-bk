@@ -6,7 +6,7 @@ import { getCurrentUser, displayName } from "@/lib/auth";
 import { DEPARTMENT_LABELS, ROLE_LABELS } from "@/lib/labels";
 import { loginAction } from "@/lib/actions/auth-actions";
 
-const DEPT_ORDER: DepartmentCode[] = ["GUESTS", "SECURITY", "PR", "VENUE_BOOKING", "CONTENT", "STAGE", "INTENSIVES"];
+const DEPT_ORDER: DepartmentCode[] = ["GUESTS", "SECURITY", "PR", "CONTENT", "STAGE", "INTENSIVES"];
 
 export default async function LoginPage({
   searchParams
@@ -51,7 +51,7 @@ export default async function LoginPage({
         )}
 
         {users.length === 0 ? (
-          <p className="text-sm text-muted">Пока нет ни одного участника. Администратору нужно добавить людей в настройках.</p>
+          <p className="text-sm text-muted">Пока нет ни одного участника. Руководителю клуба нужно добавить людей в настройках.</p>
         ) : (
           <form action={loginAction} className="space-y-4">
             <input type="hidden" name="next" value={searchParams.next ?? "/my"} />
@@ -81,7 +81,7 @@ export default async function LoginPage({
               </label>
               <input id="password" name="password" type="password" required autoComplete="current-password" className={input} />
               <p className="mt-1 text-xs text-muted">
-                У участников, руководителей и администраторов — свой пароль. Его выдаёт администратор клуба.
+                У каждой роли — участник, руководитель отдела, руководитель клуба — свой пароль. Его выдаёт руководитель клуба.
               </p>
             </div>
             <button type="submit" className="w-full rounded-lg bg-gold py-2.5 text-sm font-bold text-bg hover:bg-gold/90">

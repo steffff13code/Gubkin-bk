@@ -15,6 +15,7 @@ import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/permissions";
 import { LOGIN_ROLES, setRolePassword, type LoginRole } from "@/lib/role-passwords";
 import { ROLE_LABELS } from "@/lib/labels";
+import { deleteDemoData } from "@/lib/demo";
 
 async function runOrRedirect(tab: "people" | "templates" | "access", fn: () => Promise<string | void>): Promise<never> {
   let error: string | null = null;
@@ -78,27 +79,8 @@ export async function deleteDemoDataAction(): Promise<void> {
     if (me.isDemo) {
       throw new Error("Вы вошли как демо-пользователь. Добавьте себя в «Люди», войдите под своим именем и повторите.");
     }
-    const demoUsers = await prisma.user.findMany({ where: { isDemo: true }, select: { id: true } });
-    const ids = demoUsers.map((u) => u.id);
-
-    await prisma.$transaction([
-      prisma.event.deleteMany({ where: { isDemo: true } }),
-      prisma.idea.deleteMany({ where: { isDemo: true } }),
-      // Всё, что демо-люди успели сделать в настоящих данных, переходит к администратору.
-      prisma.event.updateMany({ where: { createdById: { in: ids } }, data: { createdById: me.id } }),
-      prisma.event.updateMany({ where: { leadId: { in: ids } }, data: { leadId: null } }),
-      prisma.event.updateMany({ where: { approvedById: { in: ids } }, data: { approvedById: me.id } }),
-      prisma.task.updateMany({ where: { assigneeId: { in: ids } }, data: { assigneeId: null } }),
-      prisma.task.updateMany({ where: { secondAssigneeId: { in: ids } }, data: { secondAssigneeId: null } }),
-      prisma.task.updateMany({ where: { completedById: { in: ids } }, data: { completedById: me.id } }),
-      prisma.attachment.updateMany({ where: { addedById: { in: ids } }, data: { addedById: me.id } }),
-      prisma.retro.updateMany({ where: { authorId: { in: ids } }, data: { authorId: me.id } }),
-      prisma.regulation.updateMany({ where: { updatedById: { in: ids } }, data: { updatedById: me.id } }),
-      prisma.regulationVersion.updateMany({ where: { editedById: { in: ids } }, data: { editedById: me.id } }),
-      prisma.idea.updateMany({ where: { authorId: { in: ids } }, data: { authorId: null } }),
-      prisma.user.deleteMany({ where: { id: { in: ids } } })
-    ]);
-    return `Демо-данные удалены (людей: ${ids.length}). Можно добавлять настоящих участников.`;
+    const count = await deleteDemoData(me.id);
+    return `Демо-данные удалены (людей: ${count}). Можно добавлять настоящих участников.`;
   });
 }
 
@@ -108,7 +90,7 @@ export async function updateUserAction(userId: string, formData: FormData): Prom
     const role = String(formData.get("role") || "MEMBER") as Role;
     const isActive = formData.get("isActive") === "on";
     if (userId === admin.id && (role !== "ADMIN" || !isActive)) {
-      throw new Error("Нельзя снять права администратора или отключить самого себя — попросите другого администратора.");
+      throw new Error("Нельзя снять с себя роль руководителя клуба или отключить себя — попросите другого руководителя клуба.");
     }
     await prisma.user.update({ where: { id: userId }, data: { role, isActive } });
   });
@@ -142,6 +124,8 @@ function templateDataFromForm(formData: FormData) {
   const firesTrigger = String(formData.get("firesTrigger") || "") || null;
   const autoComplete = String(formData.get("autoComplete") || "") || null;
   const department = String(formData.get("department") || "") || null;
+  const dayOffsetStr = String(formData.get("dayOffsetMinutes") ?? "").trim();
+  const dayTimeLabel = String(formData.get("dayTimeLabel") || "").trim() || null;
 
   if (triggerType === "EVENT" && !triggerEvent) {
     throw new Error("Для задачи «по событию» выберите, какое событие её запускает.");
@@ -159,7 +143,9 @@ function templateDataFromForm(formData: FormData) {
     required: formData.get("required") === "on",
     needsTwoAssignees: formData.get("needsTwoAssignees") === "on",
     group: String(formData.get("group") || "BEFORE") as TaskGroup,
-    sortOrder: Number(formData.get("sortOrder") || 0)
+    sortOrder: Number(formData.get("sortOrder") || 0),
+    dayOffsetMinutes: dayOffsetStr ? Number(dayOffsetStr) : null,
+    dayTimeLabel
   };
 }
 

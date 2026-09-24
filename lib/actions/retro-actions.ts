@@ -22,7 +22,7 @@ export async function saveRetroAction(eventId: string, formData: FormData): Prom
     const user = await requireUser();
     const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId } });
     if (!canManageEvent(user, event)) {
-      throw new PermissionError("Заполнить итоги может только лид мероприятия или администратор.");
+      throw new PermissionError("Заполнить итоги может только лид мероприятия или руководитель клуба.");
     }
     if (event.stage !== "DONE" && event.stage !== "CLOSED") {
       throw new Error("Итоги заполняются после того, как мероприятие отмечено проведённым.");

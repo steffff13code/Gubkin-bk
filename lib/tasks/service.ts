@@ -22,7 +22,10 @@ async function loadDepartmentAssignments(): Promise<DepartmentAssignments> {
   return assignments;
 }
 
-/** Разворачивает план задач по шаблону типа мероприятия. Вызывается один раз, когда dateFixed становится true. */
+/**
+ * Разворачивает план задач по шаблону типа мероприятия. Вызывается один раз — при запуске
+ * подготовки по окну дат (dateFixed = false) или сразу с зафиксированной датой.
+ */
 export async function generateTasksForEvent(eventId: string, actorId: string | null = null, now: Date = new Date()) {
   const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId } });
   if (!event.targetDate) {
@@ -38,15 +41,20 @@ export async function generateTasksForEvent(eventId: string, actorId: string | n
   });
   const assignments = await loadDepartmentAssignments();
 
-  const rows = buildTaskRows(templates, event.targetDate, now, assignments, event.leadId);
+  const rows = buildTaskRows(templates, event.targetDate, now, assignments, event.leadId, event.dateFixed);
   if (rows.length === 0) return;
 
   await prisma.task.createMany({ data: rows.map((r) => ({ eventId, ...r })) });
   await prisma.activityLog.create({
     data: { eventId, userId: actorId, action: "TASKS_GENERATED", payload: { count: rows.length } }
   });
-  // «Зафиксировать дату с гостем» выполнена по определению: план разворачивается фиксацией даты.
+  if (event.dateFixed) await markDateFixed(eventId, actorId, now);
+}
+
+/** Дата зафиксирована: закрывает задачу фиксации и запускает ждавшие её задачи (аудитория, пиар, съёмка). */
+export async function markDateFixed(eventId: string, actorId: string | null, now: Date = new Date()) {
   await autoCompleteTasks(eventId, "DATE_FIXED", actorId);
+  await fireTaskTrigger(eventId, "DATE_FIXED", now);
 }
 
 /** Перенос даты мероприятия: пересчитывает сроки открытых DATE_OFFSET-задач, закрытые не трогает. */

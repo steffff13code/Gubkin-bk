@@ -26,7 +26,7 @@ export async function loginAction(formData: FormData): Promise<void> {
   if (!password) fail("Введите пароль.");
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user || !user.isActive) fail("Этот человек не найден или отключён. Обратитесь к администратору.");
+  if (!user || !user.isActive) fail("Этот человек не найден или отключён. Обратитесь к руководителю клуба.");
 
   const ok = await checkRolePassword(user!.role, password);
   if (!ok) {

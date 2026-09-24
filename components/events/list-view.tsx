@@ -32,7 +32,9 @@ export function ListView({ events }: { events: EventListItem[] }) {
                 </Link>
               </td>
               <td className="px-3 py-2 text-muted">{EVENT_TYPE_LABELS[e.type]}</td>
-              <td className="px-3 py-2 text-muted">{formatDate(e.targetDate)}</td>
+              <td className="px-3 py-2 text-muted">
+                {e.targetDate && !e.dateFixed ? `окно с ${formatDate(e.targetDate)}` : formatDate(e.targetDate)}
+              </td>
               <td className="px-3 py-2 text-muted">
                 {EVENT_STAGE_LABELS[e.stage as keyof typeof EVENT_STAGE_LABELS]}
               </td>

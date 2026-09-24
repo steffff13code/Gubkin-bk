@@ -144,6 +144,20 @@ function TemplateForm({
           </option>
         ))}
       </select>
+      <input
+        type="number"
+        name="dayOffsetMinutes"
+        defaultValue={template?.dayOffsetMinutes ?? ""}
+        placeholder="День Д: минут от начала (−120)"
+        title="Только для задач дня мероприятия: за сколько минут до начала (отрицательное) или после"
+        className="rounded border border-line bg-surface px-2 py-1"
+      />
+      <input
+        name="dayTimeLabel"
+        defaultValue={template?.dayTimeLabel ?? ""}
+        placeholder="День Д: подпись («финал»)"
+        className="rounded border border-line bg-surface px-2 py-1"
+      />
       <label className="flex items-center gap-1">
         <input type="checkbox" name="required" defaultChecked={template?.required ?? true} />
         Обязательная

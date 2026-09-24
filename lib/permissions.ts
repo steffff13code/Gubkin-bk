@@ -32,7 +32,7 @@ export class PermissionError extends Error {}
 
 export async function requireUser(): Promise<CurrentUser> {
   const user = await getCurrentUser();
-  if (!user) throw new PermissionError("Нужно войти через Telegram.");
+  if (!user) throw new PermissionError("Нужно войти: выберите себя на странице «Войти» и введите пароль роли.");
   return user;
 }
 

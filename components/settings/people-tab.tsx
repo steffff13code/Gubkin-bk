@@ -29,8 +29,8 @@ export function PeopleTab({ users, currentUserId }: { users: UserRow[]; currentU
           <input name="lastName" placeholder="Фамилия" className={`${input} sm:col-span-2`} />
           <select name="role" defaultValue="MEMBER" className={`${input} sm:col-span-2`}>
             <option value="MEMBER">Участник</option>
-            <option value="LEAD">Руководитель</option>
-            <option value="ADMIN">Администратор</option>
+            <option value="LEAD">Руководитель отдела</option>
+            <option value="ADMIN">Руководитель клуба</option>
           </select>
           <select name="departmentCode" defaultValue="" className={`${input} sm:col-span-3`}>
             <option value="">Без отдела</option>

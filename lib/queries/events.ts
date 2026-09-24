@@ -19,6 +19,7 @@ export type EventListItem = {
   stage: string;
   targetDate: Date | null;
   timeSlot: string | null;
+  dateFixed: boolean;
   venue: string | null;
   leadName: string | null;
   leadId: string | null;
@@ -68,6 +69,7 @@ export async function getEventsList(filters: EventFilters): Promise<EventListIte
       stage: e.stage,
       targetDate: e.targetDate,
       timeSlot: e.timeSlot,
+      dateFixed: e.dateFixed,
       venue: e.venue,
       leadName: e.lead ? e.lead.firstName : null,
       leadId: e.leadId,

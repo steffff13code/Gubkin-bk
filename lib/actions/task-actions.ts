@@ -26,6 +26,12 @@ async function loadTaskWithEvent(taskId: string) {
   return task;
 }
 
+function assertEditable(event: { stage: string }) {
+  if (event.stage === "CLOSED" || event.stage === "REJECTED") {
+    throw new Error("Мероприятие в архиве — задачи больше не меняются.");
+  }
+}
+
 export async function toggleTaskAction(taskId: string, done: boolean, formData?: FormData): Promise<void> {
   const task = await loadTaskWithEvent(taskId);
   const returnTo = formData ? String(formData.get("returnTo") || "") || undefined : undefined;
@@ -33,9 +39,10 @@ export async function toggleTaskAction(taskId: string, done: boolean, formData?:
     task.eventId,
     async () => {
       const user = await requireUser();
+    assertEditable(task.event);
       const isAssignee = task.assigneeId === user.id || task.secondAssigneeId === user.id;
       if (!isAssignee && !canManageEvent(user, task.event)) {
-        throw new PermissionError("Отметить эту задачу может только исполнитель, лид мероприятия или администратор.");
+        throw new PermissionError("Отметить эту задачу может только исполнитель, лид мероприятия или руководитель клуба.");
       }
 
       if (done) {
@@ -67,8 +74,9 @@ export async function skipTaskAction(taskId: string): Promise<void> {
   const task = await loadTaskWithEvent(taskId);
   await runOrRedirect(task.eventId, async () => {
     const user = await requireUser();
+    assertEditable(task.event);
     if (!canManageEvent(user, task.event)) {
-      throw new PermissionError("Пропустить задачу может только лид мероприятия или администратор.");
+      throw new PermissionError("Пропустить задачу может только лид мероприятия или руководитель клуба.");
     }
     if (task.required) throw new Error("Обязательную задачу нельзя пропустить.");
     await prisma.task.update({ where: { id: taskId }, data: { status: "SKIPPED" } });
@@ -83,9 +91,10 @@ export async function assignToMeAction(taskId: string, formData?: FormData): Pro
   const returnTo = formData ? String(formData.get("returnTo") || "") || undefined : undefined;
   await runOrRedirect(task.eventId, async () => {
     const user = await requireUser();
+    assertEditable(task.event);
     if (task.status !== "TODO") throw new Error("Закрытую задачу нельзя взять на себя.");
     if (task.assigneeId && task.assigneeId !== user.id && !canManageEvent(user, task.event)) {
-      throw new PermissionError("У задачи уже есть исполнитель. Переназначить её может лид мероприятия или администратор.");
+      throw new PermissionError("У задачи уже есть исполнитель. Переназначить её может лид мероприятия или руководитель клуба.");
     }
     await prisma.task.update({ where: { id: taskId }, data: { assigneeId: user.id } });
     await prisma.activityLog.create({
@@ -98,8 +107,9 @@ export async function updateTaskAction(taskId: string, formData: FormData): Prom
   const task = await loadTaskWithEvent(taskId);
   await runOrRedirect(task.eventId, async () => {
     const user = await requireUser();
+    assertEditable(task.event);
     if (!canManageEvent(user, task.event)) {
-      throw new PermissionError("Редактировать задачу может только лид мероприятия или администратор.");
+      throw new PermissionError("Редактировать задачу может только лид мероприятия или руководитель клуба.");
     }
     const assigneeId = String(formData.get("assigneeId") || "") || null;
     const secondAssigneeId = String(formData.get("secondAssigneeId") || "") || null;

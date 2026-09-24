@@ -1,3 +1,4 @@
+import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { canManageEvent, isAdmin } from "@/lib/permissions";
@@ -28,12 +29,16 @@ export default async function EventDetailPage({
   ]);
 
   if (!event) notFound();
+  // Тип мероприятия с проверкой ЦБ: дату нельзя фиксировать до ответа ЦБ.
+  const requiresSecurityCheck =
+    (await prisma.taskTemplate.count({ where: { eventType: event.type, firesTrigger: "SECURITY_ANSWERED" } })) > 0;
 
-  const tab = searchParams.tab ?? "obzor";
   const canManage = canManageEvent(user, event);
   const admin = isAdmin(user);
   const tasksDone = event.tasks.filter((t) => t.status === "DONE").length;
   const showResults = event.stage === "DONE" || event.stage === "CLOSED";
+  const TAB_KEYS = ["obzor", "tasks", "files", "history", ...(showResults ? ["itogi"] : [])];
+  const tab = TAB_KEYS.includes(searchParams.tab ?? "") ? searchParams.tab! : "obzor";
 
   return (
     <div>
@@ -71,7 +76,7 @@ export default async function EventDetailPage({
           </div>
         </div>
         <div className="mt-3">
-          <StageActions event={event} canManage={canManage} isAdmin={admin} />
+          <StageActions event={event} canManage={canManage} isAdmin={admin} requiresSecurityCheck={requiresSecurityCheck} />
         </div>
       </div>
 
@@ -84,8 +89,8 @@ export default async function EventDetailPage({
       <TabsNav eventId={event.id} tab={tab} showResults={showResults} />
 
       {tab === "obzor" && <OverviewTab event={event} canManage={canManage} users={users} />}
-      {tab === "tasks" && <TasksTab event={event} users={users} currentUserId={user?.id ?? null} />}
-      {tab === "files" && <FilesTab event={event} canPost={!!user} />}
+      {tab === "tasks" && <TasksTab event={event} users={users} currentUserId={user?.id ?? null} canManage={canManage} />}
+      {tab === "files" && <FilesTab event={event} canPost={!!user} currentUserId={user?.id ?? null} isAdmin={admin} />}
       {tab === "itogi" && showResults && <ResultsTab event={event} canManage={canManage} />}
       {tab === "history" && <HistoryTab event={event} />}
     </div>

@@ -7,6 +7,28 @@ describe("composeDigest", () => {
     expect(composeDigest({ overdue: [], dueSoon: [], ledWithOverdue: [] })).toBeNull();
   });
 
+  it("в день мероприятия первым идёт личный тайминг", () => {
+    const text = composeDigest({
+      today: [
+        {
+          eventTitle: "Лекция",
+          timeSlot: "17:15",
+          link: "https://example.com/events/1/day",
+          steps: [
+            { when: "15:15", title: "Аудитория открыта" },
+            { when: "после", title: "Вернуть технику" }
+          ]
+        }
+      ],
+      overdue: [],
+      dueSoon: [],
+      ledWithOverdue: []
+    });
+    expect(text).toContain("Сегодня мероприятие «Лекция» в 17:15");
+    expect(text).toContain("• 15:15 — Аудитория открыта");
+    expect(text).toContain("https://example.com/events/1/day");
+  });
+
   it("собирает три блока в одно сообщение", () => {
     const text = composeDigest({
       overdue: [{ title: "Подать заявку в ЦБ", eventTitle: "Лекция", dueDate: new Date("2026-09-20T00:00:00Z") }],

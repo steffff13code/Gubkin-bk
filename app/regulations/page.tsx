@@ -19,7 +19,6 @@ const GROUP_ICONS: Record<string, (p: { className?: string }) => React.ReactElem
   GUESTS: UsersIcon,
   SECURITY: ShieldIcon,
   PR: MegaphoneIcon,
-  VENUE_BOOKING: MapPinIcon,
   CONTENT: CameraIcon,
   STAGE: MapPinIcon,
   INTENSIVES: DocIcon

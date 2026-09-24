@@ -5,7 +5,7 @@ import type { EventStage, EventType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { canManageEvent, PermissionError, requireRole, requireUser } from "@/lib/permissions";
 import { checkStageEntry, type EventForStageCheck } from "@/lib/stages";
-import { fireTaskTrigger, generateTasksForEvent, recalcTasksOnDateChange } from "@/lib/tasks/service";
+import { fireTaskTrigger, generateTasksForEvent, markDateFixed, recalcTasksOnDateChange } from "@/lib/tasks/service";
 import { startOfUtcDay } from "@/lib/time";
 import { EVENT_STAGE_LABELS } from "@/lib/labels";
 import { notifyAdminsOfApproval } from "@/lib/notifications/approval";
@@ -101,7 +101,7 @@ export async function updateOverviewAction(eventId: string, formData: FormData):
   await runOrRedirect(eventId, "obzor", async () => {
     const user = await requireUser();
     const event = await loadEventOrThrow(eventId);
-    if (!canManageEvent(user, event)) throw new PermissionError("Редактировать это мероприятие может только его лид или администратор.");
+    if (!canManageEvent(user, event)) throw new PermissionError("Редактировать это мероприятие может только его лид или руководитель клуба.");
 
     const leadId = String(formData.get("leadId") || "") || null;
     const requestedType = String(formData.get("type") || "") as EventType | "";
@@ -140,7 +140,7 @@ export async function sendToApprovalAction(eventId: string): Promise<void> {
   await runOrRedirect(eventId, "obzor", async () => {
     const user = await requireUser();
     const event = await loadEventOrThrow(eventId);
-    if (!canManageEvent(user, event)) throw new PermissionError("Отправить на согласование может только лид мероприятия или администратор.");
+    if (!canManageEvent(user, event)) throw new PermissionError("Отправить на согласование может только лид мероприятия или руководитель клуба.");
     assertStage(event, ["IDEA"]);
 
     const error = checkStageEntry("APPROVAL", toStageCheck(event));
@@ -220,39 +220,84 @@ function parseDateFields(formData: FormData, event: LoadedEvent) {
   };
 }
 
-/** Предварительная дата в PLANNING: видна в календаре, план ещё не разворачивается. */
-export async function setTentativeDateAction(eventId: string, formData: FormData): Promise<void> {
+/**
+ * Запуск подготовки по окну дат (PLANNING → IN_PROGRESS). По регламенту гостю обещаем окно,
+ * а не дату: план разворачивается от первого дня окна, чтобы заявка в ЦБ ушла за месяц.
+ * Задачи «после фиксации даты» (аудитория, анонсы, съёмка) ждут фиксации.
+ */
+export async function startPreparationAction(eventId: string, formData: FormData): Promise<void> {
   await runOrRedirect(eventId, "obzor", async () => {
     const user = await requireUser();
     const event = await loadEventOrThrow(eventId);
-    if (!canManageEvent(user, event)) throw new PermissionError("Назначать дату может только лид мероприятия или администратор.");
+    if (!canManageEvent(user, event)) throw new PermissionError("Запустить подготовку может только лид мероприятия или руководитель клуба.");
     assertStage(event, ["PLANNING"]);
 
     const fields = parseDateFields(formData, event);
+    const error = checkStageEntry("IN_PROGRESS", toStageCheck(event, { targetDate: fields.targetDate, dateFixed: false }));
+    if (error) throw new Error(error);
+
     await prisma.event.update({ where: { id: eventId }, data: { ...fields, dateFixed: false } });
+    await generateTasksForEvent(eventId, user.id);
+    await prisma.event.update({ where: { id: eventId }, data: { stage: "IN_PROGRESS", stageChangedAt: new Date() } });
     await prisma.activityLog.create({
-      data: { eventId, userId: user.id, action: "TENTATIVE_DATE_SET", payload: { targetDate: fields.targetDate.toISOString() } }
+      data: { eventId, userId: user.id, action: "PREPARATION_STARTED", payload: { targetDate: fields.targetDate.toISOString() } }
     });
   });
 }
 
-/** Фиксация даты (PLANNING → IN_PROGRESS, разворачивает план) или перенос уже зафиксированной даты. */
+/** Сдвиг окна дат до фиксации: пересчитывает сроки открытых задач от нового первого дня окна. */
+export async function moveWindowAction(eventId: string, formData: FormData): Promise<void> {
+  await runOrRedirect(eventId, "obzor", async () => {
+    const user = await requireUser();
+    const event = await loadEventOrThrow(eventId);
+    if (!canManageEvent(user, event)) throw new PermissionError("Менять окно дат может только лид мероприятия или руководитель клуба.");
+    assertStage(event, ["IN_PROGRESS"]);
+    if (event.dateFixed) throw new Error("Дата уже зафиксирована — используйте «Перенести дату».");
+    const fields = parseDateFields(formData, event);
+    await prisma.event.update({ where: { id: eventId }, data: fields });
+    if (!event.targetDate || event.targetDate.getTime() !== fields.targetDate.getTime()) {
+      await recalcTasksOnDateChange(eventId, fields.targetDate, user.id);
+    }
+  });
+}
+
+/**
+ * Фиксация даты — по регламенту только после ответа ЦБ («Дата — только после ЦБ»).
+ * Из PLANNING (типы без проверки ЦБ) сразу разворачивает план; в IN_PROGRESS пересчитывает
+ * сроки от точной даты и запускает задачи, ждавшие фиксации. Уже зафиксированную дату переносит.
+ */
 export async function fixDateAction(eventId: string, formData: FormData): Promise<void> {
   await runOrRedirect(eventId, "obzor", async () => {
     const user = await requireUser();
     const event = await loadEventOrThrow(eventId);
-    if (!canManageEvent(user, event)) throw new PermissionError("Назначать дату может только лид мероприятия или администратор.");
+    if (!canManageEvent(user, event)) throw new PermissionError("Назначать дату может только лид мероприятия или руководитель клуба.");
     assertStage(event, ["PLANNING", "IN_PROGRESS"]);
 
     const fields = parseDateFields(formData, event);
 
     if (!event.dateFixed) {
-      const error = checkStageEntry("IN_PROGRESS", toStageCheck(event, { targetDate: fields.targetDate, dateFixed: true }));
-      if (error) throw new Error(error);
-
-      await prisma.event.update({ where: { id: eventId }, data: { ...fields, dateFixed: true } });
-      await generateTasksForEvent(eventId, user.id);
-      await prisma.event.update({ where: { id: eventId }, data: { stage: "IN_PROGRESS", stageChangedAt: new Date() } });
+      const securityAnswer = await prisma.task.findFirst({ where: { eventId, firesTrigger: "SECURITY_ANSWERED" } });
+      if (securityAnswer && securityAnswer.status === "TODO") {
+        throw new Error(
+          `По регламенту дату фиксируем только после ответа ЦБ. Сначала ЦБ закрывает задачу «${securityAnswer.title}».`
+        );
+      }
+      if (event.stage === "PLANNING") {
+        const needsSecurity = await prisma.taskTemplate.count({ where: { eventType: event.type, firesTrigger: "SECURITY_ANSWERED" } });
+        if (needsSecurity > 0) {
+          throw new Error("Сначала запустите подготовку по окну дат: заявка в ЦБ уходит до фиксации даты.");
+        }
+        const error = checkStageEntry("IN_PROGRESS", toStageCheck(event, { targetDate: fields.targetDate }));
+        if (error) throw new Error(error);
+        await prisma.event.update({ where: { id: eventId }, data: { ...fields, dateFixed: true } });
+        await generateTasksForEvent(eventId, user.id);
+        await prisma.event.update({ where: { id: eventId }, data: { stage: "IN_PROGRESS", stageChangedAt: new Date() } });
+      } else {
+        const changed = !event.targetDate || event.targetDate.getTime() !== fields.targetDate.getTime();
+        await prisma.event.update({ where: { id: eventId }, data: { ...fields, dateFixed: true } });
+        if (changed) await recalcTasksOnDateChange(eventId, fields.targetDate, user.id);
+        await markDateFixed(eventId, user.id);
+      }
       await prisma.activityLog.create({
         data: { eventId, userId: user.id, action: "DATE_FIXED", payload: { targetDate: fields.targetDate.toISOString() } }
       });
@@ -271,7 +316,7 @@ export async function markDoneAction(eventId: string): Promise<void> {
   await runOrRedirect(eventId, "itogi", async () => {
     const user = await requireUser();
     const event = await loadEventOrThrow(eventId);
-    if (!canManageEvent(user, event)) throw new PermissionError("Отметить мероприятие проведённым может только лид или администратор.");
+    if (!canManageEvent(user, event)) throw new PermissionError("Отметить мероприятие проведённым может только лид или руководитель клуба.");
     assertStage(event, ["IN_PROGRESS"]);
 
     const error = checkStageEntry("DONE", toStageCheck(event));
@@ -287,7 +332,7 @@ export async function closeEventAction(eventId: string): Promise<void> {
   await runOrRedirect(eventId, "itogi", async () => {
     const user = await requireUser();
     const event = await loadEventOrThrow(eventId);
-    if (!canManageEvent(user, event)) throw new PermissionError("Закрыть мероприятие может только лид или администратор.");
+    if (!canManageEvent(user, event)) throw new PermissionError("Закрыть мероприятие может только лид или руководитель клуба.");
     assertStage(event, ["DONE"]);
 
     const error = checkStageEntry("CLOSED", toStageCheck(event));
@@ -326,7 +371,7 @@ export async function addEventMemberAction(eventId: string, formData: FormData):
   await runOrRedirect(eventId, "obzor", async () => {
     const user = await requireUser();
     const event = await loadEventOrThrow(eventId);
-    if (!canManageEvent(user, event)) throw new PermissionError("Изменять состав может только лид мероприятия или администратор.");
+    if (!canManageEvent(user, event)) throw new PermissionError("Изменять состав может только лид мероприятия или руководитель клуба.");
 
     const userId = String(formData.get("userId") || "");
     const roleInEvent = String(formData.get("roleInEvent") || "").trim();
@@ -344,7 +389,7 @@ export async function removeEventMemberAction(eventId: string, memberId: string)
   await runOrRedirect(eventId, "obzor", async () => {
     const user = await requireUser();
     const event = await loadEventOrThrow(eventId);
-    if (!canManageEvent(user, event)) throw new PermissionError("Изменять состав может только лид мероприятия или администратор.");
+    if (!canManageEvent(user, event)) throw new PermissionError("Изменять состав может только лид мероприятия или руководитель клуба.");
     await prisma.eventMember.delete({ where: { id: memberId } });
   });
 }

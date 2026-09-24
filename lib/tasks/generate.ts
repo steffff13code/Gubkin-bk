@@ -17,6 +17,8 @@ export type TemplateLike = {
   autoComplete: TaskAutoComplete | null;
   group: TaskGroup;
   sortOrder: number;
+  dayOffsetMinutes?: number | null;
+  dayTimeLabel?: string | null;
 };
 
 export type DepartmentAssignment = { headId: string | null; deputyId: string | null };
@@ -38,9 +40,20 @@ export type GeneratedTaskRow = {
   required: boolean;
   group: TaskGroup;
   sortOrder: number;
+  dayOffsetMinutes: number | null;
+  dayTimeLabel: string | null;
 };
 
-/** Исполнитель задачи: руководитель отдела, зам — только если needsTwoAssignees. Без отдела — лид мероприятия. */
+/**
+ * Кто второй «в контуре», если в отделе нет зама. По регламенту ЦБ работает в паре
+ * с руководителем Гостей: «Степана познакомил с ЦБ — в контуре двое».
+ */
+export const CONTOUR_PARTNER: Partial<Record<DepartmentCode, DepartmentCode>> = { SECURITY: "GUESTS" };
+
+/**
+ * Исполнитель задачи: руководитель отдела; второй (если needsTwoAssignees) — зам отдела,
+ * а если зама нет — руководитель отдела-напарника из CONTOUR_PARTNER. Без отдела — лид мероприятия.
+ */
 export function resolveAssignees(
   department: DepartmentCode | null,
   needsTwoAssignees: boolean,
@@ -51,27 +64,32 @@ export function resolveAssignees(
     return { assigneeId: leadId, secondAssigneeId: null };
   }
   const a = assignments[department];
-  return {
-    assigneeId: a?.headId ?? null,
-    secondAssigneeId: needsTwoAssignees ? a?.deputyId ?? null : null
-  };
+  const assigneeId = a?.headId ?? null;
+  if (!needsTwoAssignees) return { assigneeId, secondAssigneeId: null };
+  const partner = CONTOUR_PARTNER[department];
+  let second = a?.deputyId ?? (partner ? assignments[partner]?.headId ?? null : null);
+  if (second === assigneeId) second = null;
+  return { assigneeId, secondAssigneeId: second };
 }
 
 /**
- * Срок задачи в момент разворачивания плана (dateFixed = true):
- * - DATE_OFFSET → targetDate + offsetDays
- * - EVENT с триггером DATE_FIXED → срабатывает прямо сейчас, срок = now + offsetDays
+ * Срок задачи в момент разворачивания плана. План разворачивается по окну дат
+ * (дата ещё предварительная) — по регламенту заявка в ЦБ подаётся до фиксации даты.
+ * - DATE_OFFSET → targetDate + offsetDays (при фиксации даты пересчитываются)
+ * - EVENT с триггером DATE_FIXED → если дата уже зафиксирована, срок = now + offsetDays,
+ *   иначе ждёт фиксации
  * - остальные EVENT-триггеры → null, получат срок при срабатывании триггера
  */
 export function initialDueDate(
   template: Pick<TemplateLike, "triggerType" | "offsetDays" | "triggerEvent">,
   targetDate: Date,
-  now: Date
+  now: Date,
+  dateFixed = true
 ): Date | null {
   if (template.triggerType === "DATE_OFFSET") {
     return addDays(targetDate, template.offsetDays ?? 0);
   }
-  if (template.triggerEvent === "DATE_FIXED") {
+  if (template.triggerEvent === "DATE_FIXED" && dateFixed) {
     return addDays(calendarDay(now), template.offsetDays ?? 0);
   }
   return null;
@@ -82,7 +100,8 @@ export function buildTaskRows(
   targetDate: Date,
   now: Date,
   assignments: DepartmentAssignments,
-  leadId: string | null
+  leadId: string | null,
+  dateFixed = true
 ): GeneratedTaskRow[] {
   return templates.map((t) => {
     const { assigneeId, secondAssigneeId } = resolveAssignees(
@@ -97,7 +116,7 @@ export function buildTaskRows(
       department: t.department,
       assigneeId,
       secondAssigneeId,
-      dueDate: initialDueDate(t, targetDate, now),
+      dueDate: initialDueDate(t, targetDate, now, dateFixed),
       triggerType: t.triggerType,
       offsetDays: t.offsetDays,
       triggerEvent: t.triggerEvent,
@@ -106,7 +125,9 @@ export function buildTaskRows(
       status: "TODO",
       required: t.required,
       group: t.group,
-      sortOrder: t.sortOrder
+      sortOrder: t.sortOrder,
+      dayOffsetMinutes: t.dayOffsetMinutes ?? null,
+      dayTimeLabel: t.dayTimeLabel ?? null
     };
   });
 }

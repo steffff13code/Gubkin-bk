@@ -4,7 +4,17 @@ import { displayName } from "@/lib/auth";
 import { formatDate } from "@/lib/time";
 import { addAttachmentAction, deleteAttachmentAction } from "@/lib/actions/attachment-actions";
 
-export function FilesTab({ event, canPost }: { event: EventDetail; canPost: boolean }) {
+export function FilesTab({
+  event,
+  canPost,
+  currentUserId,
+  isAdmin
+}: {
+  event: EventDetail;
+  canPost: boolean;
+  currentUserId: string | null;
+  isAdmin: boolean;
+}) {
   const byKind = new Map<string, EventDetail["attachments"]>();
   for (const a of event.attachments) {
     byKind.set(a.kind, [...(byKind.get(a.kind) ?? []), a]);
@@ -25,11 +35,13 @@ export function FilesTab({ event, canPost }: { event: EventDetail; canPost: bool
                 </a>
                 <span className="flex items-center gap-2 text-xs text-muted">
                   {displayName(f.addedBy)} · {formatDate(f.createdAt)}
-                  <form action={deleteAttachmentAction.bind(null, event.id, f.id)}>
-                    <button type="submit" className="hover:text-danger">
-                      Удалить
-                    </button>
-                  </form>
+                  {(isAdmin || f.addedById === currentUserId) && (
+                    <form action={deleteAttachmentAction.bind(null, event.id, f.id)}>
+                      <button type="submit" className="hover:text-danger">
+                        Удалить
+                      </button>
+                    </form>
+                  )}
                 </span>
               </li>
             ))}
@@ -50,7 +62,7 @@ export function FilesTab({ event, canPost }: { event: EventDetail; canPost: bool
               ))}
             </select>
             <input name="title" required placeholder="Название" className="flex-1 rounded border border-line bg-bg px-2 py-1.5 text-sm" />
-            <input name="url" required placeholder="https://drive.google.com/..." className="flex-1 rounded border border-line bg-bg px-2 py-1.5 text-sm" />
+            <input name="url" type="url" required pattern="https://.*" title="Ссылка должна начинаться с https://" placeholder="https://drive.google.com/..." className="flex-1 rounded border border-line bg-bg px-2 py-1.5 text-sm" />
             <button type="submit" className="rounded bg-gold px-3 py-1.5 text-sm font-bold text-bg hover:bg-gold/90">
               Добавить
             </button>

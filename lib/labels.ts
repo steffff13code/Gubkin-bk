@@ -59,7 +59,6 @@ export const DEPARTMENT_LABELS: Record<DepartmentCode, string> = {
   GUESTS: "Гости",
   SECURITY: "ЦБ",
   PR: "Пиар",
-  VENUE_BOOKING: "Аудитория",
   CONTENT: "Контент",
   STAGE: "Площадка",
   INTENSIVES: "Интенсивы"
@@ -68,8 +67,8 @@ export const DEPARTMENT_LABELS: Record<DepartmentCode, string> = {
 export const ROLE_LABELS: Record<Role, string> = {
   READER: "Гость",
   MEMBER: "Участник",
-  LEAD: "Руководитель",
-  ADMIN: "Администратор"
+  LEAD: "Руководитель отдела",
+  ADMIN: "Руководитель клуба"
 };
 
 export const GUEST_STATUS_LABELS: Record<GuestStatus, string> = {

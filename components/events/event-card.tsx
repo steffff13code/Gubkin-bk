@@ -26,8 +26,8 @@ export function EventCard({ event }: { event: EventListItem }) {
 
       <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted">
         <CalendarIcon className="h-3.5 w-3.5" />
-        {formatDate(event.targetDate)}
-        {event.timeSlot ? ` · ${event.timeSlot}` : ""}
+        {event.targetDate && !event.dateFixed ? `окно с ${formatDate(event.targetDate)}` : formatDate(event.targetDate)}
+        {event.dateFixed && event.timeSlot ? ` · ${event.timeSlot}` : ""}
       </p>
 
       {event.tasksTotal > 0 && (

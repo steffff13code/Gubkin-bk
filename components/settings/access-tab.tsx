@@ -55,7 +55,7 @@ export function AccessTab({ defaultRoles, demoCount }: { defaultRoles: LoginRole
           <>
             <p className="mb-3 text-xs text-muted">
               Сейчас в системе {demoCount} демо-записей: тестовые люди по отделам, пример мероприятия с планом, три идеи.
-              Перед запуском удалите их. Сначала добавьте себя во вкладке «Люди» администратором и войдите под своим именем.
+              Перед запуском удалите их. Сначала добавьте себя во вкладке «Люди» руководителем клуба и войдите под своим именем.
             </p>
             <details>
               <summary className="cursor-pointer text-sm font-bold text-danger">Удалить демо-данные</summary>

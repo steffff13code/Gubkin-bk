@@ -15,6 +15,7 @@ const ACTION_LABELS: Record<string, string> = {
   MARKED_DONE: "отмечено проведённым",
   CLOSED: "закрыто",
   TENTATIVE_DATE_SET: "указана предварительная дата",
+  PREPARATION_STARTED: "подготовка запущена по окну дат",
   OVERVIEW_UPDATED: "карточка отредактирована",
   TASK_DONE: "задача закрыта",
   TASK_REOPENED: "задача открыта заново",

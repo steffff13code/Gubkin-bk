@@ -1,13 +1,15 @@
+import Link from "next/link";
 import type { EventDetail } from "@/lib/queries/event-detail";
-import { formatDate } from "@/lib/time";
+import { addDays, calendarDay, formatDate } from "@/lib/time";
 import {
   approveEventAction,
   fixDateAction,
   markDoneAction,
+  moveWindowAction,
   rejectEventAction,
   returnToIdeaAction,
   sendToApprovalAction,
-  setTentativeDateAction
+  startPreparationAction
 } from "@/lib/actions/event-actions";
 
 const primaryBtn = "rounded bg-gold px-3 py-1.5 text-sm font-bold text-bg hover:bg-gold/90";
@@ -18,16 +20,31 @@ function toInputDate(d: Date | null) {
   return d ? d.toISOString().slice(0, 10) : "";
 }
 
-function DateFields({ event }: { event: EventDetail }) {
+// Типовое время лекции по регламенту отдела «Гости».
+const TIME_SLOTS = ["15:45", "17:15", "17:20"];
+
+function DateFields({ event, id, label = "Дата" }: { event: EventDetail; id: string; label?: string }) {
   return (
     <>
       <div>
-        <label className="mb-1 block text-xs text-muted">Дата</label>
+        <label className="mb-1 block text-xs text-muted">{label}</label>
         <input type="date" name="targetDate" required defaultValue={toInputDate(event.targetDate)} className={input} />
       </div>
       <div>
         <label className="mb-1 block text-xs text-muted">Время</label>
-        <input type="text" name="timeSlot" placeholder="17:15" defaultValue={event.timeSlot ?? ""} className={`w-24 ${input}`} />
+        <input
+          type="text"
+          name="timeSlot"
+          list={`time-slots-${id}`}
+          placeholder="17:15"
+          defaultValue={event.timeSlot ?? ""}
+          className={`w-24 ${input}`}
+        />
+        <datalist id={`time-slots-${id}`}>
+          {TIME_SLOTS.map((t) => (
+            <option key={t} value={t} />
+          ))}
+        </datalist>
       </div>
       <div>
         <label className="mb-1 block text-xs text-muted">Аудитория</label>
@@ -40,18 +57,20 @@ function DateFields({ event }: { event: EventDetail }) {
 export function StageActions({
   event,
   canManage,
-  isAdmin
+  isAdmin,
+  requiresSecurityCheck
 }: {
   event: EventDetail;
   canManage: boolean;
   isAdmin: boolean;
+  requiresSecurityCheck: boolean;
 }) {
   if (event.stage === "IDEA") {
     return (
       <div className="space-y-2">
         {event.approvalComment && (
           <p className="rounded border border-gold/40 bg-gold/10 px-3 py-2 text-sm text-ink">
-            Комментарий администратора: {event.approvalComment}
+            Комментарий руководителя клуба: {event.approvalComment}
           </p>
         )}
         {canManage ? (
@@ -69,7 +88,7 @@ export function StageActions({
 
   if (event.stage === "APPROVAL") {
     if (!isAdmin) {
-      return <p className="text-sm text-muted">Ждёт решения администратора.</p>;
+      return <p className="text-sm text-muted">Ждёт решения руководителя клуба.</p>;
     }
     return (
       <div className="flex flex-wrap gap-2">
@@ -105,26 +124,69 @@ export function StageActions({
     return (
       <div className="space-y-2">
         <p className="text-sm text-muted">
-          {event.targetDate
-            ? `Предварительная дата: ${formatDate(event.targetDate)}${event.timeSlot ? `, ${event.timeSlot}` : ""} — план развернётся после фиксации.`
-            : "Согласовано. Укажите дату: предварительную — чтобы она появилась в календаре, или зафиксируйте — план задач развернётся по регламенту."}
+          Согласовано. По регламенту гостю обещаем окно из 10 дней, а не дату. Укажите первый день окна и
+          запустите подготовку: план развернётся по отделам, ЦБ получит задачу подать заявку за месяц. Точную
+          дату фиксируем после ответа ЦБ.
         </p>
         {canManage && (
           <form className="flex flex-wrap items-end gap-2">
-            <DateFields event={event} />
-            <button type="submit" formAction={setTentativeDateAction.bind(null, event.id)} className={ghostBtn}>
-              Сохранить как предварительную
+            <DateFields event={event} id="plan" label="Первый день окна" />
+            <button type="submit" formAction={startPreparationAction.bind(null, event.id)} className={primaryBtn}>
+              Запустить подготовку
             </button>
-            <button type="submit" formAction={fixDateAction.bind(null, event.id)} className={primaryBtn}>
-              Зафиксировать дату
-            </button>
+            {!requiresSecurityCheck && (
+              <button type="submit" formAction={fixDateAction.bind(null, event.id)} className={ghostBtn}>
+                Дата точная — зафиксировать
+              </button>
+            )}
           </form>
         )}
       </div>
     );
   }
 
+  if (event.stage === "IN_PROGRESS" && !event.dateFixed) {
+    const securityPending = event.tasks.find((t) => t.firesTrigger === "SECURITY_ANSWERED" && t.status === "TODO");
+    const windowEnd = event.targetDate ? addDays(event.targetDate, 9) : null;
+    return (
+      <div className="space-y-2">
+        <p className="text-sm text-ink">
+          Подготовка идёт. Окно дат: <strong>{formatDate(event.targetDate)}</strong> — <strong>{formatDate(windowEnd)}</strong>
+          <span className="text-muted"> · дата ещё не зафиксирована</span>
+        </p>
+        {securityPending ? (
+          <p className="rounded border border-gold/30 bg-gold/10 px-3 py-2 text-sm text-gold">
+            Дату фиксируем после ответа ЦБ — сейчас ждём задачу «{securityPending.title}».
+          </p>
+        ) : null}
+        {canManage && (
+          <div className="flex flex-wrap gap-2">
+            {!securityPending && (
+              <form action={fixDateAction.bind(null, event.id)} className="flex flex-wrap items-end gap-2">
+                <DateFields event={event} id="fix" label="Дата мероприятия" />
+                <button type="submit" className={primaryBtn}>
+                  Зафиксировать дату
+                </button>
+              </form>
+            )}
+            <details className="rounded border border-line px-3 py-1.5">
+              <summary className="cursor-pointer text-sm font-bold text-ink">Сдвинуть окно</summary>
+              <form action={moveWindowAction.bind(null, event.id)} className="mt-2 flex flex-wrap items-end gap-2">
+                <DateFields event={event} id="window" label="Первый день окна" />
+                <button type="submit" className={ghostBtn}>
+                  Сдвинуть
+                </button>
+              </form>
+              <p className="mt-1 text-xs text-muted">Сроки открытых задач пересчитаются от нового окна.</p>
+            </details>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (event.stage === "IN_PROGRESS") {
+    const isToday = event.targetDate && calendarDay(event.targetDate).getTime() === calendarDay(new Date()).getTime();
     return (
       <div className="space-y-2">
         <p className="text-sm text-ink">
@@ -132,25 +194,30 @@ export function StageActions({
           {event.timeSlot ? `, ${event.timeSlot}` : ""}
           {event.venue ? ` · ${event.venue}` : ""}
         </p>
-        {canManage && (
-          <div className="flex flex-wrap gap-2">
-            <details className="rounded border border-line px-3 py-1.5">
-              <summary className="cursor-pointer text-sm font-bold text-ink">Перенести дату</summary>
-              <form action={fixDateAction.bind(null, event.id)} className="mt-2 flex flex-wrap items-end gap-2">
-                <DateFields event={event} />
-                <button type="submit" className={ghostBtn}>
-                  Перенести
+        <div className="flex flex-wrap gap-2">
+          <Link href={`/events/${event.id}/day`} className={isToday ? primaryBtn : ghostBtn}>
+            {isToday ? "Сегодня мероприятие — открыть тайминг" : "Тайминг дня мероприятия"}
+          </Link>
+          {canManage && (
+            <>
+              <details className="rounded border border-line px-3 py-1.5">
+                <summary className="cursor-pointer text-sm font-bold text-ink">Перенести дату</summary>
+                <form action={fixDateAction.bind(null, event.id)} className="mt-2 flex flex-wrap items-end gap-2">
+                  <DateFields event={event} id="move" />
+                  <button type="submit" className={ghostBtn}>
+                    Перенести
+                  </button>
+                </form>
+                <p className="mt-1 text-xs text-muted">Сроки открытых задач пересчитаются от новой даты, закрытые не тронем.</p>
+              </details>
+              <form action={markDoneAction.bind(null, event.id)}>
+                <button type="submit" className={primaryBtn}>
+                  Отметить проведённым
                 </button>
               </form>
-              <p className="mt-1 text-xs text-muted">Сроки открытых задач пересчитаются от новой даты, закрытые не тронем.</p>
-            </details>
-            <form action={markDoneAction.bind(null, event.id)}>
-              <button type="submit" className={primaryBtn}>
-                Отметить проведённым
-              </button>
-            </form>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
     );
   }

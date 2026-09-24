@@ -12,7 +12,7 @@ export default async function NewEventPage({ searchParams }: { searchParams: { e
   if (!isLeadOrAdmin(user)) {
     return (
       <div className="rounded border border-line bg-surface p-6 text-sm text-muted">
-        Создавать мероприятия могут руководители отделов и администраторы. Войдите с соответствующей ролью.
+        Создавать мероприятия могут руководители отделов и руководитель клуба. Войдите с соответствующей ролью.
       </div>
     );
   }

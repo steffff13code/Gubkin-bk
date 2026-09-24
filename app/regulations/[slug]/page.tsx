@@ -6,6 +6,8 @@ import { renderMarkdown } from "@/lib/markdown";
 import { displayName } from "@/lib/auth";
 import { formatDateTime } from "@/lib/time";
 import { updateRegulationAction } from "@/lib/actions/regulation-actions";
+import { FLOWS } from "@/lib/regulation-flows";
+import { RegulationFlow } from "@/components/regulation-flow";
 
 export default async function RegulationPage({
   params,
@@ -30,6 +32,12 @@ export default async function RegulationPage({
         <p className="mb-4 rounded border border-danger/30 bg-danger/5 p-3 text-sm text-danger">
           {searchParams.error}
         </p>
+      )}
+
+      {FLOWS[regulation.slug] && (
+        <div className="mb-4">
+          <RegulationFlow flow={FLOWS[regulation.slug]} />
+        </div>
       )}
 
       <div

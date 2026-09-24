@@ -50,6 +50,35 @@ select {
 .markdown strong {
   font-weight: 700;
 }
+.markdown ol {
+  list-style: decimal;
+  padding-left: 1.4rem;
+  margin: 0.5rem 0;
+}
+.markdown li {
+  margin: 0.25rem 0;
+  line-height: 1.5;
+}
+.markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  font-size: 0.85rem;
+  display: block;
+  overflow-x: auto;
+}
+.markdown th,
+.markdown td {
+  border: 1px solid #1d2e52;
+  padding: 0.45rem 0.6rem;
+  text-align: left;
+  vertical-align: top;
+}
+.markdown th {
+  background: #122045;
+  color: #8b9bc0;
+  font-weight: 700;
+}
 
 @keyframes navprogress {
   0% {
