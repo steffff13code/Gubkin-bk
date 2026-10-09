@@ -57,6 +57,7 @@ export async function ensureAdminPassword(env: string | undefined = process.env.
 }
 
 export async function isAdminPasswordSet(): Promise<boolean> {
+  await ensureAdminPassword();
   return !!(await get(ADMIN_KEY));
 }
 

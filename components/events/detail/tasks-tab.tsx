@@ -69,7 +69,12 @@ export function TasksTab({
             byDept.set(key, [...(byDept.get(key) ?? []), t]);
           }
           return (
-            <details key={group} open={showAll || group === currentGroup} className="group/part">
+            <details
+              key={group}
+              // Текущая часть плана раскрыта; в день мероприятия раскрыты и незакрытые задачи «до».
+              open={showAll || group === currentGroup || (group === "BEFORE" && currentGroup === "EVENT_DAY")}
+              className="group/part"
+            >
               <summary className="mb-2 flex cursor-pointer list-none items-center gap-2">
                 <span className="text-xs text-muted transition group-open/part:rotate-90">▶</span>
                 <h3 className="text-xs font-bold uppercase tracking-wide text-muted">
