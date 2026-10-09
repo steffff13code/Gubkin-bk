@@ -53,8 +53,9 @@ export function NavProgress() {
         btn.dataset.wasDisabled = btn.disabled ? "1" : "0";
         btn.setAttribute("data-pending", "");
         // Отключаем после отправки: в момент submit кнопка должна быть активной, иначе её значение не уйдёт.
+        // Если ответ уже пришёл и кнопку сбросили, повторно не отключаем — иначе она останется серой.
         setTimeout(() => {
-          btn.disabled = true;
+          if (btn.hasAttribute("data-pending")) btn.disabled = true;
         }, 0);
       }
 

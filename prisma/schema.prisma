@@ -22,43 +22,47 @@ enum Role {
 }
 
 model User {
-  id          String   @id @default(cuid())
-  telegramId  String?  @unique // привязывается из профиля для уведомлений, для входа не нужен
-  username    String?
-  firstName   String
-  lastName    String?
-  photoUrl    String?
-  role        Role     @default(MEMBER)
-  botStarted  Boolean  @default(false)
-  isActive    Boolean  @default(true)
-  isDemo      Boolean  @default(false) // демо-данные сида, удаляются одной кнопкой в настройках
-  createdAt   DateTime @default(now())
+  id            String   @id @default(cuid())
+  telegramId    String?  @unique // привязывается из профиля для уведомлений, для входа не нужен
+  username      String?
+  firstName     String
+  lastName      String?
+  photoUrl      String?
+  role          Role     @default(MEMBER)
+  botStarted    Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  isDemo        Boolean  @default(false) // демо-данные сида, удаляются одной кнопкой в настройках
+  // Служебный аккаунт роли (Администратор клуба, Внешний отдел, Пиар, Event, Контент) —
+  // в него входят по роли, а не по человеку. Он же руководитель (HEAD) своего отдела.
+  isRoleAccount Boolean  @default(false)
+  createdAt     DateTime @default(now())
 
-  departments        UserDepartment[]
-  ledEvents          Event[]           @relation("EventLead")
-  createdEvents      Event[]           @relation("EventCreatedBy")
-  approvedEvents     Event[]           @relation("EventApprovedBy")
-  eventMemberships   EventMember[]
-  assignedTasks      Task[]            @relation("TaskAssignee")
-  secondAssignedTasks Task[]           @relation("TaskSecondAssignee")
-  completedTasks     Task[]            @relation("TaskCompletedBy")
-  attachments        Attachment[]
-  retros             Retro[]
-  ideas              Idea[]
-  ideaVotes          IdeaVote[]
-  regulationsUpdated Regulation[]
-  regulationVersions RegulationVersion[]
-  activityLogs       ActivityLog[]
-  notifications      NotificationLog[]
+  departments           UserDepartment[]
+  ledEvents             Event[]                @relation("EventLead")
+  createdEvents         Event[]                @relation("EventCreatedBy")
+  approvedEvents        Event[]                @relation("EventApprovedBy")
+  eventMemberships      EventMember[]
+  assignedTasks         Task[]                 @relation("TaskAssignee")
+  secondAssignedTasks   Task[]                 @relation("TaskSecondAssignee")
+  completedTasks        Task[]                 @relation("TaskCompletedBy")
+  attachments           Attachment[]
+  retros                Retro[]
+  ideas                 Idea[]
+  ideaVotes             IdeaVote[]
+  regulationsUpdated    Regulation[]
+  regulationVersions    RegulationVersion[]
+  activityLogs          ActivityLog[]
+  notifications         NotificationLog[]
+  telegramSubscriptions TelegramSubscription[]
+  dateOptions           EventDateOption[]
 }
 
 enum DepartmentCode {
-  GUESTS
-  SECURITY
-  PR
+  BOARD // руководство клуба — роль «Администратор клуба»
+  GUESTS // внешний отдел: спикеры, лекции, кейсы, акселераторы, интенсивы
+  PR // пиар и пропуска
   CONTENT
-  STAGE
-  INTENSIVES
+  STAGE // event-отдел
 }
 
 model Department {
@@ -97,6 +101,7 @@ enum EventType {
   CONFERENCE
   SERIES
   INTENSIVE
+  ACCELERATOR
 }
 
 enum EventStage {
@@ -151,30 +156,61 @@ model Event {
   stageChangedAt DateTime @default(now())
   isDemo         Boolean  @default(false)
 
+  // Карточка спикера (регламент v3): род деятельности, формат, окно спикера.
+  guestOccupation    String?
+  format             String?
+  speakerWindowStart DateTime?
+  speakerWindowEnd   DateTime?
+  externalOwner      String? // кто ведёт со стороны внешнего отдела — свободный текст
+  speakerWarned      Boolean   @default(false) // предупредили, что пропуск могут не одобрить
+  passReadyAt        DateTime?
+  // Интенсивы: цикл и номер встречи.
+  intensiveCycle     String?
+  intensiveMeeting   Int?
+  intensiveTotal     Int?
+
   createdById String
-  createdBy   User     @relation("EventCreatedBy", fields: [createdById], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdBy   User      @relation("EventCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   closedAt    DateTime?
 
-  members     EventMember[]
-  tasks       Task[]
-  attachments Attachment[]
-  retro       Retro?
-  activityLogs ActivityLog[]
+  members       EventMember[]
+  dateOptions   EventDateOption[]
+  tasks         Task[]
+  attachments   Attachment[]
+  retro         Retro?
+  activityLogs  ActivityLog[]
   registrations Registration[]
-  budget      Budget?
-  attendance  Attendance[]
+  budget        Budget?
+  attendance    Attendance[]
 
   @@index([stage])
   @@index([type])
   @@index([targetDate])
 }
 
+// Варианты дат, которые Администратор и Пиар предлагают спикеру (3–4 штуки).
+model EventDateOption {
+  id          String   @id @default(cuid())
+  eventId     String
+  date        DateTime
+  timeSlot    String?
+  venue       String?
+  comment     String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  event     Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([eventId])
+}
+
 model EventMember {
-  id         String @id @default(cuid())
-  eventId    String
-  userId     String
+  id          String @id @default(cuid())
+  eventId     String
+  userId      String
   roleInEvent String // свободный текст: «встречает гостя», «ведущий»
 
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -225,13 +261,14 @@ model TaskTemplate {
   offsetDays   Int? // отрицательные — до мероприятия; для EVENT — дней после события
   triggerEvent TaskTriggerEvent?
 
-  required         Boolean @default(true)
+  required          Boolean @default(true)
   needsTwoAssignees Boolean @default(false)
 
   // Закрытие задачи, созданной по этому шаблону, зажигает указанный триггер
   // для других задач этого мероприятия (см. раздел 8 ТЗ, п. 6).
   firesTrigger TaskTriggerEvent?
   autoComplete TaskAutoComplete?
+  description  String? // markdown «как сделать», переносится в задачу
 
   group     TaskGroup
   sortOrder Int
@@ -280,16 +317,16 @@ model Task {
   dayOffsetMinutes Int?
   dayTimeLabel     String?
 
-  completedAt      DateTime?
-  completedById    String?
+  completedAt       DateTime?
+  completedById     String?
   overdueNotifiedAt DateTime?
 
-  event           Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  template        TaskTemplate? @relation(fields: [templateId], references: [id])
-  assignee        User?         @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  secondAssignee  User?         @relation("TaskSecondAssignee", fields: [secondAssigneeId], references: [id])
-  completedBy     User?         @relation("TaskCompletedBy", fields: [completedById], references: [id])
-  attachments     Attachment[]
+  event          Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  template       TaskTemplate? @relation(fields: [templateId], references: [id])
+  assignee       User?         @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  secondAssignee User?         @relation("TaskSecondAssignee", fields: [secondAssigneeId], references: [id])
+  completedBy    User?         @relation("TaskCompletedBy", fields: [completedById], references: [id])
+  attachments    Attachment[]
 
   @@index([eventId])
   @@index([assigneeId])
@@ -331,12 +368,12 @@ model Attachment {
 }
 
 model Retro {
-  eventId        String   @id
-  wentWell       String
-  wentWrong      String
-  doDifferently  String
-  authorId       String
-  createdAt      DateTime @default(now())
+  eventId       String   @id
+  wentWell      String
+  wentWrong     String
+  doDifferently String
+  authorId      String
+  createdAt     DateTime @default(now())
 
   event  Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
   author User  @relation(fields: [authorId], references: [id])
@@ -360,20 +397,20 @@ enum IdeaStatus {
 }
 
 model Idea {
-  id     String       @id @default(cuid())
-  text   String
+  id       String       @id @default(cuid())
+  text     String
   category IdeaCategory
 
   // При анонимной отправке authorId НЕ записывается — поле остаётся null.
   authorId String?
-  author   User?  @relation(fields: [authorId], references: [id])
+  author   User?   @relation(fields: [authorId], references: [id])
 
   targetDepartment DepartmentCode?
 
-  status        IdeaStatus @default(NEW)
-  adminComment  String?
+  status           IdeaStatus @default(NEW)
+  adminComment     String?
   convertedEventId String?
-  isDemo           Boolean @default(false)
+  isDemo           Boolean    @default(false)
 
   createdAt DateTime @default(now())
 
@@ -430,12 +467,13 @@ model RegulationVersion {
 // ---------------------------------------------------------------
 
 model ActivityLog {
-  id        String   @id @default(cuid())
-  eventId   String?
-  userId    String?
-  action    String
-  payload   Json?
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  eventId    String?
+  userId     String?
+  actorLabel String? // подпись «как подписать вас в истории» с устройства
+  action     String
+  payload    Json?
+  createdAt  DateTime @default(now())
 
   event Event? @relation(fields: [eventId], references: [id], onDelete: SetNull)
   user  User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
@@ -451,11 +489,25 @@ model AppSetting {
 }
 
 model NotificationLog {
-  id        String   @id @default(cuid())
-  userId    String
-  kind      String
-  dedupeKey String   @unique
-  sentAt    DateTime @default(now())
+  id             String   @id @default(cuid())
+  userId         String
+  subscriptionId String? // кому из подписчиков роли ушло
+  kind           String
+  dedupeKey      String   @unique
+  sentAt         DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Подписка Telegram на уведомления роли: на одну роль могут подписаться несколько человек.
+model TelegramSubscription {
+  id         String   @id @default(cuid())
+  userId     String
+  telegramId String   @unique
+  label      String?
+  createdAt  DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -511,10 +563,10 @@ model Registration {
 }
 
 model Attendance {
-  id        String  @id @default(cuid())
-  eventId   String
-  fullName  String
-  attended  Boolean @default(false)
+  id       String  @id @default(cuid())
+  eventId  String
+  fullName String
+  attended Boolean @default(false)
 
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 

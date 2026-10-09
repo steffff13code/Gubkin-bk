@@ -1,25 +1,22 @@
 import Link from "next/link";
 import clsx from "clsx";
 import type { EventDetail } from "@/lib/queries/event-detail";
-import { DEPARTMENT_LABELS, TASK_GROUP_LABELS } from "@/lib/labels";
-import { displayName } from "@/lib/auth";
-import { Avatar } from "@/components/avatar";
+import { DEPARTMENT_LABELS, TASK_GROUP_LABELS, TASK_TRIGGER_EVENT_LABELS } from "@/lib/labels";
+import type { CurrentUser } from "@/lib/auth";
+import { renderMarkdown } from "@/lib/markdown";
+import { userCan, userCanCloseTask } from "@/lib/permissions";
 import { calendarDay, formatDate, isOverdue } from "@/lib/time";
-import { assignToMeAction, skipTaskAction, toggleTaskAction, updateTaskAction } from "@/lib/actions/task-actions";
+import { skipTaskAction, toggleTaskAction, updateTaskAction } from "@/lib/actions/task-actions";
 
 type TaskWithRelations = EventDetail["tasks"][number];
 
 export function TasksTab({
   event,
-  users,
-  currentUserId,
-  canManage,
+  user,
   showAll
 }: {
   event: EventDetail;
-  users: { id: string; firstName: string; lastName: string | null }[];
-  currentUserId: string | null;
-  canManage: boolean;
+  user: CurrentUser | null;
   /** false — только открытые задачи, выполненные спрятаны. */
   showAll: boolean;
 }) {
@@ -72,7 +69,12 @@ export function TasksTab({
             byDept.set(key, [...(byDept.get(key) ?? []), t]);
           }
           return (
-            <details key={group} open={showAll || group === currentGroup} className="group/part">
+            <details
+              key={group}
+              // Текущая часть плана раскрыта; в день мероприятия раскрыты и незакрытые задачи «до».
+              open={showAll || group === currentGroup || (group === "BEFORE" && currentGroup === "EVENT_DAY")}
+              className="group/part"
+            >
               <summary className="mb-2 flex cursor-pointer list-none items-center gap-2">
                 <span className="text-xs text-muted transition group-open/part:rotate-90">▶</span>
                 <h3 className="text-xs font-bold uppercase tracking-wide text-muted">
@@ -88,11 +90,11 @@ export function TasksTab({
                 {Array.from(byDept.entries()).map(([dept, tasks]) => (
                   <div key={dept} className="rounded-lg border border-line bg-bg">
                     <p className="border-b border-line px-3 py-1.5 text-xs font-bold text-gold">
-                      {dept === "_" ? "Лид мероприятия" : DEPARTMENT_LABELS[dept as keyof typeof DEPARTMENT_LABELS]}
+                      {dept === "_" ? "Все" : DEPARTMENT_LABELS[dept as keyof typeof DEPARTMENT_LABELS]}
                     </p>
                     <ul className="divide-y divide-line">
                       {tasks.map((t) => (
-                        <TaskRow key={t.id} task={t} users={users} currentUserId={currentUserId} canManage={canManage} locked={locked} />
+                        <TaskRow key={t.id} task={t} user={user} locked={locked} />
                       ))}
                     </ul>
                   </div>
@@ -106,38 +108,24 @@ export function TasksTab({
   );
 }
 
-function TaskRow({
-  task,
-  users,
-  currentUserId,
-  canManage,
-  locked
-}: {
-  task: TaskWithRelations;
-  users: { id: string; firstName: string; lastName: string | null }[];
-  currentUserId: string | null;
-  canManage: boolean;
-  locked: boolean;
-}) {
+function TaskRow({ task, user, locked }: { task: TaskWithRelations; user: CurrentUser | null; locked: boolean }) {
   const overdue = task.status === "TODO" && task.required && isOverdue(task.dueDate);
-  const isMine = !!currentUserId && (task.assigneeId === currentUserId || task.secondAssigneeId === currentUserId);
-  // Права — те же, что проверяет сервер в lib/actions/task-actions.ts.
-  const canToggle = !locked && task.status !== "SKIPPED" && (isMine || canManage);
-  const canTake = !locked && !!currentUserId && task.status === "TODO" && !isMine && (!task.assigneeId || canManage);
-  const canEdit = !locked && canManage;
+  const mine = !!user?.roleKey && task.department === user.roleKey;
+  // Права — те же, что проверяет сервер (lib/roles.ts): задачу закрывает её отдел или Администратор.
+  const canToggle = !locked && task.status !== "SKIPPED" && userCanCloseTask(user, task);
+  const canEdit = !locked && userCan(user, "SETTINGS");
   const canSkip = canEdit && !task.required && task.status === "TODO";
-  const hasMenu = canTake || canEdit;
 
   const box = clsx(
-    "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold",
+    "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold",
     task.status === "DONE" ? "border-success bg-success text-bg" : "border-line text-transparent"
   );
 
   return (
-    <li className="px-3 py-2">
+    <li className="px-3 py-2.5">
       <div className="flex items-start gap-3">
         {canToggle ? (
-          <form action={toggleTaskAction.bind(null, task.id, task.status !== "DONE")} className="pt-0.5">
+          <form action={toggleTaskAction.bind(null, task.id, task.status !== "DONE")}>
             <button
               type="submit"
               className={clsx(box, "hover:border-success hover:text-success")}
@@ -149,14 +137,8 @@ function TaskRow({
           </form>
         ) : (
           <span
-            className={clsx(box, "mt-0.5 opacity-70")}
-            title={
-              task.status === "DONE"
-                ? "Выполнено"
-                : locked
-                  ? "Мероприятие в архиве"
-                  : "Отметить может исполнитель, лид мероприятия или руководитель клуба"
-            }
+            className={clsx(box, "opacity-70")}
+            title={task.status === "DONE" ? "Выполнено" : locked ? "Мероприятие в архиве" : "Закрывает отдел задачи или Администратор"}
           >
             {task.status === "DONE" ? "✓" : ""}
           </span>
@@ -168,70 +150,31 @@ function TaskRow({
             {!task.required && <span className="ml-1 text-xs text-muted">(необязательная)</span>}
           </p>
           <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted">
-            <span className={clsx("flex items-center gap-1", !task.assigneeId && "font-bold text-danger")}>
-              {task.assignee && <Avatar name={displayName(task.assignee)} size={16} />}
-              {task.assigneeId ? displayName(task.assignee!) : "без исполнителя"}
-              {task.secondAssignee && (
-                <>
-                  <span>+</span>
-                  <Avatar name={displayName(task.secondAssignee)} size={16} />
-                  {displayName(task.secondAssignee)}
-                </>
-              )}
-            </span>
             {task.dayTimeLabel ? (
               <span className="rounded bg-gold/15 px-1.5 py-0.5 font-bold text-gold">{task.dayTimeLabel}</span>
             ) : (
-              <span>{task.dueDate ? formatDate(task.dueDate) : "срок не назначен"}</span>
+              <span>{task.dueDate ? `до ${formatDate(task.dueDate)}` : task.triggerEvent ? `после: ${TASK_TRIGGER_EVENT_LABELS[task.triggerEvent].toLowerCase()}` : "срок не назначен"}</span>
             )}
             {overdue && <span className="rounded bg-danger/10 px-1.5 py-0.5 font-bold text-danger">Просрочено</span>}
             {task.status === "SKIPPED" && <span>пропущена</span>}
-            {isMine && task.status === "TODO" && <span className="text-gold">ваша задача</span>}
+            {mine && task.status === "TODO" && <span className="text-gold">ваша задача</span>}
           </div>
-          {task.description && <p className="mt-1 whitespace-pre-line text-xs text-muted">{task.description}</p>}
-          {canTake && !canEdit && (
-            <form action={assignToMeAction.bind(null, task.id)} className="mt-1">
-              <button type="submit" className="text-xs font-bold text-gold hover:underline">
-                Взять на себя
-              </button>
-            </form>
+          {task.description && (
+            <details className="mt-1">
+              <summary className="cursor-pointer text-xs text-muted hover:text-ink">Как сделать</summary>
+              <div className="markdown mt-1 text-xs text-muted" dangerouslySetInnerHTML={{ __html: renderMarkdown(task.description) }} />
+            </details>
           )}
         </div>
 
-        {canEdit && hasMenu && (
+        {canEdit && task.status === "TODO" && (
           <details className="relative">
-            <summary className="cursor-pointer list-none rounded px-1.5 text-xs text-muted hover:bg-surface2 hover:text-ink" title="Исполнитель, срок, заметка">
+            <summary className="cursor-pointer list-none rounded px-1.5 text-xs text-muted hover:bg-surface2 hover:text-ink" title="Срок и заметка">
               ⋯
             </summary>
             <div className="absolute right-0 z-10 mt-2 w-64 space-y-2 rounded border border-line bg-bg p-2 shadow-lg">
-              {canTake && (
-                <form action={assignToMeAction.bind(null, task.id)}>
-                  <button type="submit" className="text-xs font-bold text-ink underline">
-                    Взять на себя
-                  </button>
-                </form>
-              )}
               <form action={updateTaskAction.bind(null, task.id)} className="space-y-1.5">
-                <select name="assigneeId" defaultValue={task.assigneeId ?? ""} className="w-full rounded border border-line bg-surface px-1.5 py-1 text-xs">
-                  <option value="">Без исполнителя</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {displayName(u)}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  name="secondAssigneeId"
-                  defaultValue={task.secondAssigneeId ?? ""}
-                  className="w-full rounded border border-line bg-surface px-1.5 py-1 text-xs"
-                >
-                  <option value="">Второй исполнитель — нет</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {displayName(u)}
-                    </option>
-                  ))}
-                </select>
+                <label className="block text-[11px] text-muted">Срок</label>
                 <input
                   type="date"
                   name="dueDate"
@@ -241,8 +184,8 @@ function TaskRow({
                 <textarea
                   name="description"
                   defaultValue={task.description ?? ""}
-                  rows={2}
-                  placeholder="Заметка"
+                  rows={3}
+                  placeholder="Как сделать / заметка"
                   className="w-full rounded border border-line bg-surface px-1.5 py-1 text-xs"
                 />
                 <button type="submit" className="w-full rounded border border-line py-1 text-xs font-bold text-ink hover:border-gold">

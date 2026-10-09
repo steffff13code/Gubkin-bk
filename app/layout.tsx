@@ -5,9 +5,7 @@ import { Topbar } from "@/components/layout/topbar";
 import { NavProgress } from "@/components/layout/nav-progress";
 import { Suspense } from "react";
 import { getCurrentUser } from "@/lib/auth";
-import { isAdmin } from "@/lib/permissions";
 import { countMyOverdueTasks } from "@/lib/queries/my-day";
-import { rolesWithDefaultPassword } from "@/lib/role-passwords";
 
 const golos = Golos_Text({
   subsets: ["latin", "cyrillic"],
@@ -17,14 +15,13 @@ const golos = Golos_Text({
 
 export const metadata: Metadata = {
   title: "Бизнес-клуб Губкина — платформа организаторов",
-  description: "Рабочее место организатора мероприятий Бизнес-клуба"
+  description: "Рабочее место организаторов мероприятий Бизнес-клуба",
+  robots: { index: false, follow: false, nocache: true }
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
-  const admin = isAdmin(user);
-  const overdueCount = user ? await countMyOverdueTasks(user.id) : 0;
-  const defaultPasswordRoles = admin ? await rolesWithDefaultPassword() : [];
+  const overdueCount = user ? await countMyOverdueTasks(user.id, user.roleKey) : 0;
 
   return (
     <html lang="ru" className={golos.variable}>
@@ -37,7 +34,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <NavProgress />
         </Suspense>
         <div className="relative z-10 flex min-h-screen flex-col">
-          <Topbar user={user} overdueCount={overdueCount} defaultPasswordRoles={defaultPasswordRoles} />
+          <Topbar user={user} overdueCount={overdueCount} />
           <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-5 sm:px-6">{children}</main>
         </div>
       </body>

@@ -1,10 +1,18 @@
 import type { EventDetail } from "@/lib/queries/event-detail";
-import { displayName } from "@/lib/auth";
+import { actorName } from "@/lib/auth";
 import { formatDateTime } from "@/lib/time";
 
 const ACTION_LABELS: Record<string, string> = {
   CREATED: "мероприятие создано",
   SENT_TO_APPROVAL: "отправлено на согласование",
+  SENT_TO_DATES: "отправлено на подбор дат",
+  DATE_OPTION_ADDED: "добавлен вариант даты",
+  DATE_OPTION_REMOVED: "удалён вариант даты",
+  OPTIONS_READY: "варианты дат готовы",
+  BACK_TO_DATES: "спикеру не подошли варианты — снова подбор дат",
+  PASS_REJECTED: "пропуск не одобрен",
+  CANCELLED: "мероприятие отменено",
+  RESTORED_TO_DATES: "возвращено в подбор дат",
   APPROVED: "согласовано",
   RETURNED_TO_IDEA: "возвращено на доработку",
   REJECTED: "отклонено",
@@ -52,7 +60,9 @@ export function HistoryTab({ event }: { event: EventDetail }) {
           <span className="text-muted">{formatDateTime(log.createdAt)}</span>{" "}
           <span className="text-ink">{ACTION_LABELS[log.action] ?? log.action}</span>
           {payloadDetail(log.payload) && <span className="text-muted">: {payloadDetail(log.payload)}</span>}
-          {log.user && <span className="text-muted"> — {displayName(log.user)}</span>}
+          {(log.user || log.actorLabel) && (
+            <span className="text-muted"> — {actorName(log.user?.firstName ?? "", log.actorLabel).replace(/^ · /, "")}</span>
+          )}
         </li>
       ))}
       </ul>

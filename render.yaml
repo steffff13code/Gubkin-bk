@@ -23,7 +23,7 @@ services:
         sync: false
       - key: TELEGRAM_BOT_USERNAME
         sync: false
-      # Стартовые пароли ролей (необязательно; потом меняются в «Настройки → Доступ и запуск»):
+      # Пароль Администратора клуба — впишите в панели Render (Environment). Без него войти администратором нельзя.
       - key: ADMIN_PASSWORD
         sync: false
 

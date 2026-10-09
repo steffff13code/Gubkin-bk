@@ -1,10 +1,12 @@
 import crypto from "node:crypto";
 
 // Простая подписанная cookie-сессия: base64url(payload) + "." + HMAC-SHA256(payload).
-// Без внешних JWT-библиотек — нам нужен только userId и срок действия.
+// В сессии — аккаунт роли, срок действия и необязательная подпись «как подписать вас в истории».
 
 export const SESSION_COOKIE_NAME = "gbc_session";
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 180; // 180 дней
+/** Подпись «как подписать вас в истории» запоминается на устройстве, чтобы не вводить её каждый раз. */
+export const SIGNER_COOKIE = "gbc_signer";
 
 function secret(): string {
   const s = process.env.SESSION_SECRET;
@@ -18,13 +20,15 @@ function sign(payload: string): string {
   return crypto.createHmac("sha256", secret()).update(payload).digest("base64url");
 }
 
-export function createSessionCookie(userId: string): string {
-  const payload = JSON.stringify({ uid: userId, exp: Date.now() + SESSION_MAX_AGE * 1000 });
+export type Session = { userId: string; signer: string | null };
+
+export function createSessionCookie(userId: string, signer: string | null = null): string {
+  const payload = JSON.stringify({ uid: userId, exp: Date.now() + SESSION_MAX_AGE * 1000, ...(signer ? { sig: signer } : {}) });
   const b64 = Buffer.from(payload).toString("base64url");
   return `${b64}.${sign(b64)}`;
 }
 
-export function verifySessionCookie(token: string | undefined | null): string | null {
+export function verifySessionCookie(token: string | undefined | null): Session | null {
   if (!token) return null;
   const [b64, sig] = token.split(".");
   if (!b64 || !sig) return null;
@@ -38,9 +42,10 @@ export function verifySessionCookie(token: string | undefined | null): string | 
     const payload = JSON.parse(Buffer.from(b64, "base64url").toString("utf-8")) as {
       uid: string;
       exp: number;
+      sig?: string;
     };
     if (payload.exp < Date.now()) return null;
-    return payload.uid;
+    return { userId: payload.uid, signer: typeof payload.sig === "string" && payload.sig ? payload.sig : null };
   } catch {
     return null;
   }

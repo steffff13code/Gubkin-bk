@@ -1,26 +1,32 @@
-import type { DepartmentCode, EventStage } from "@prisma/client";
+import type { EventStage, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { addDays, calendarDay, daysBetween, isOverdue } from "@/lib/time";
+import { can, type RoleKey } from "@/lib/roles";
 
 const LIVE_STAGES: EventStage[] = ["IDEA", "APPROVAL", "PLANNING", "IN_PROGRESS", "DONE"];
 
 export type MyTask = Awaited<ReturnType<typeof loadMyTasks>>[number];
 
-async function loadMyTasks(userId: string) {
+/** Задачи роли: её отдела и назначенные на её аккаунт. */
+function myTasksWhere(userId: string, roleKey: RoleKey | null): Prisma.TaskWhereInput {
+  return {
+    status: "TODO",
+    event: { stage: { in: LIVE_STAGES } },
+    OR: [{ assigneeId: userId }, { secondAssigneeId: userId }, ...(roleKey ? [{ department: roleKey }] : [])]
+  };
+}
+
+async function loadMyTasks(userId: string, roleKey: RoleKey | null) {
   return prisma.task.findMany({
-    where: {
-      status: "TODO",
-      event: { stage: { in: LIVE_STAGES } },
-      OR: [{ assigneeId: userId }, { secondAssigneeId: userId }]
-    },
+    where: myTasksWhere(userId, roleKey),
     include: { event: { select: { id: true, title: true, targetDate: true } } },
     orderBy: [{ dueDate: "asc" }, { sortOrder: "asc" }]
   });
 }
 
-/** Мои открытые задачи, разложенные по срокам — как человек планирует день. */
-export async function getMyTasks(userId: string, now: Date = new Date()) {
-  const tasks = await loadMyTasks(userId);
+/** Открытые задачи роли, разложенные по срокам. */
+export async function getMyTasks(userId: string, roleKey: RoleKey | null, now: Date = new Date()) {
+  const tasks = await loadMyTasks(userId, roleKey);
   const buckets = {
     overdue: [] as MyTask[],
     today: [] as MyTask[],
@@ -41,91 +47,46 @@ export async function getMyTasks(userId: string, now: Date = new Date()) {
   return buckets;
 }
 
-function eventSummary(e: {
-  id: string;
-  title: string;
-  stage: EventStage;
-  targetDate: Date | null;
-  dateFixed: boolean;
-  retro: { eventId: string } | null;
-  tasks: { status: string; required: boolean; dueDate: Date | null }[];
-}) {
-  return {
-    id: e.id,
-    title: e.title,
-    stage: e.stage,
-    targetDate: e.targetDate,
-    dateFixed: e.dateFixed,
-    needsRetro: e.stage === "DONE" && !e.retro,
-    tasksDone: e.tasks.filter((t) => t.status === "DONE").length,
-    tasksTotal: e.tasks.length,
-    overdueCount: e.tasks.filter((t) => t.status === "TODO" && t.required && isOverdue(t.dueDate)).length
-  };
+export async function countMyOverdueTasks(userId: string, roleKey: RoleKey | null): Promise<number> {
+  return prisma.task.count({ where: { ...myTasksWhere(userId, roleKey), dueDate: { lt: calendarDay(new Date()) } } });
 }
 
-/** Мероприятия, где я лид, и где я в составе (EventMember). */
-export async function getMyEvents(userId: string) {
-  const include = {
-    tasks: { select: { status: true, required: true, dueDate: true } },
-    retro: { select: { eventId: true } }
-  } as const;
-  const [led, member] = await Promise.all([
-    prisma.event.findMany({ where: { leadId: userId, stage: { in: LIVE_STAGES } }, include, orderBy: { targetDate: "asc" } }),
-    // В команде (EventMember) или есть мои задачи — человек участвует в мероприятии.
-    prisma.event.findMany({
-      where: {
-        stage: { in: LIVE_STAGES },
-        NOT: { leadId: userId },
-        OR: [
-          { members: { some: { userId } } },
-          { tasks: { some: { OR: [{ assigneeId: userId }, { secondAssigneeId: userId }] } } }
-        ]
-      },
-      include: { ...include, members: { where: { userId }, select: { roleInEvent: true } } },
-      orderBy: { targetDate: "asc" }
-    })
-  ]);
-  return {
-    led: led.map(eventSummary),
-    member: member.map((e) => ({ ...eventSummary(e), roleInEvent: e.members[0]?.roleInEvent || "Мои задачи" }))
-  };
-}
+export type Decision = { eventId: string; title: string; action: string; danger?: boolean };
 
-/** Свободные задачи моих отделов (без исполнителя) в мероприятиях, которые готовятся. */
-export async function getFreeDepartmentTasks(departments: DepartmentCode[]) {
-  if (departments.length === 0) return [];
-  return prisma.task.findMany({
-    where: {
-      status: "TODO",
-      assigneeId: null,
-      department: { in: departments },
-      event: { stage: { in: ["IN_PROGRESS", "DONE"] } }
-    },
-    include: { event: { select: { id: true, title: true } } },
-    orderBy: [{ dueDate: "asc" }]
+/** Мероприятия, где следующий шаг этапа — за этой ролью. */
+export async function getDecisions(roleKey: RoleKey | null, now: Date = new Date()): Promise<Decision[]> {
+  if (!roleKey) return [];
+  const events = await prisma.event.findMany({
+    where: { stage: { in: LIVE_STAGES } },
+    include: { dateOptions: { select: { id: true } }, retro: { select: { eventId: true } } },
+    orderBy: [{ targetDate: "asc" }, { createdAt: "asc" }]
   });
+  const today = calendarDay(now).getTime();
+  const out: Decision[] = [];
+  for (const e of events) {
+    const base = { eventId: e.id, title: e.title };
+    if (e.stage === "IDEA" && can(roleKey, "CREATE_EVENT")) out.push({ ...base, action: "Дописать карточку и отправить на подбор дат" });
+    if (e.stage === "APPROVAL" && can(roleKey, "ADD_DATE_OPTIONS")) {
+      out.push({ ...base, action: e.dateOptions.length ? `Вариантов ${e.dateOptions.length} — отметить «Варианты готовы»` : "Внести варианты дат" });
+    }
+    if (e.stage === "PLANNING" && can(roleKey, "FIX_DATE")) out.push({ ...base, action: "Согласовать дату со спикером" });
+    if (e.stage === "IN_PROGRESS" && can(roleKey, "FINISH") && e.targetDate && calendarDay(e.targetDate).getTime() <= today) {
+      out.push({ ...base, action: "Отметить «Проведено»" });
+    }
+    if (e.stage === "DONE" && can(roleKey, "FINISH")) out.push({ ...base, action: "Итоги и закрытие" });
+  }
+  if (roleKey === "BOARD") {
+    for (const s of await getStuckEvents(now)) out.push({ eventId: s.id, title: s.title, action: `Стоит ${s.ageDays} дн.`, danger: true });
+  }
+  return out;
 }
 
-/** Мероприятия сегодня (по Москве) с зафиксированной датой — для баннера «сегодня мероприятие». */
+/** Мероприятия сегодня (по Москве) с зафиксированной датой — для баннера «Сегодня». */
 export async function getTodayEvents(now: Date = new Date()) {
   const today = calendarDay(now);
   return prisma.event.findMany({
     where: { stage: { in: ["IN_PROGRESS", "DONE"] }, dateFixed: true, targetDate: today },
     select: { id: true, title: true, timeSlot: true, venue: true, stage: true }
-  });
-}
-
-export async function getPendingApprovals() {
-  return prisma.event.findMany({
-    where: { stage: "APPROVAL" },
-    include: { lead: true },
-    orderBy: { stageChangedAt: "asc" }
-  });
-}
-
-export async function countUnassignedTasks() {
-  return prisma.task.count({
-    where: { status: "TODO", assigneeId: null, event: { stage: { in: ["IN_PROGRESS", "DONE"] } } }
   });
 }
 
@@ -140,16 +101,5 @@ export async function getStuckEvents(now: Date = new Date()) {
   return events
     .filter((e) => daysBetween(e.stageChangedAt, now) >= 7)
     .filter((e) => !e.tasks.some((t) => t.status === "DONE" && t.completedAt && t.completedAt >= addDays(now, -7)))
-    .map((e) => ({ id: e.id, title: e.title, stage: e.stage, leadName: e.lead?.firstName ?? null, ageDays: daysBetween(e.stageChangedAt, now) }));
-}
-
-export async function countMyOverdueTasks(userId: string): Promise<number> {
-  return prisma.task.count({
-    where: {
-      status: "TODO",
-      dueDate: { lt: calendarDay(new Date()) },
-      event: { stage: { in: LIVE_STAGES } },
-      OR: [{ assigneeId: userId }, { secondAssigneeId: userId }]
-    }
-  });
+    .map((e) => ({ id: e.id, title: e.title, stage: e.stage, ageDays: daysBetween(e.stageChangedAt, now) }));
 }

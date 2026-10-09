@@ -1,149 +1,110 @@
+import type { CurrentUser } from "@/lib/auth";
 import type { EventDetail } from "@/lib/queries/event-detail";
 import { renderMarkdown } from "@/lib/markdown";
-import { displayName } from "@/lib/auth";
-import { EVENT_TYPE_LABELS, GUEST_STATUS_LABELS } from "@/lib/labels";
-import { updateOverviewAction } from "@/lib/actions/event-actions";
+import { userCan } from "@/lib/permissions";
+import { formatDate } from "@/lib/time";
+import { windowWarning } from "@/lib/stages";
+import { cancelEventAction, updateSpeakerAction } from "@/lib/actions/event-actions";
+import { SpeakerForm } from "@/components/events/speaker-form";
 
-export function OverviewTab({
-  event,
-  canManage,
-  users
-}: {
-  event: EventDetail;
-  canManage: boolean;
-  users: { id: string; firstName: string; lastName: string | null }[];
-}) {
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="space-y-6">
-      <section className="rounded border border-line bg-surface p-4">
-        <h2 className="mb-2 text-sm font-bold text-ink">Программа</h2>
-        {event.description ? (
-          <div className="markdown text-sm text-ink" dangerouslySetInnerHTML={{ __html: renderMarkdown(event.description) }} />
-        ) : (
-          <p className="text-sm text-muted">Описание пока не заполнено.</p>
+    <div className="grid grid-cols-[8rem_1fr] gap-2 py-1.5 text-sm">
+      <dt className="text-muted">{label}</dt>
+      <dd className="text-ink">{value || <span className="text-muted">—</span>}</dd>
+    </div>
+  );
+}
+
+const iso = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
+
+/** Карточка спикера: что известно о спикере и мероприятии; правка — Внешний отдел и Администратор. */
+export function OverviewTab({ event, user }: { event: EventDetail; user: CurrentUser | null }) {
+  const canEdit = userCan(user, "CREATE_EVENT") && event.stage !== "CLOSED";
+  const canCancel = userCan(user, "CANCEL_DELETE") && !["CLOSED", "REJECTED"].includes(event.stage);
+  const warn = windowWarning(event.speakerWindowStart, event.speakerWindowEnd);
+
+  return (
+    <div className="space-y-4">
+      <dl className="divide-y divide-line">
+        <Row label="Спикер" value={event.guestName} />
+        <Row label="Род деятельности" value={event.guestOccupation} />
+        <Row label="Компания" value={event.guestOrganization} />
+        <Row label="О чём" value={event.guestTopic} />
+        <Row label="Формат" value={event.format} />
+        <Row
+          label="Окно спикера"
+          value={
+            event.speakerWindowStart && event.speakerWindowEnd ? (
+              <>
+                {formatDate(event.speakerWindowStart)} — {formatDate(event.speakerWindowEnd)}
+                {warn && <span className="block text-xs text-gold">{warn}</span>}
+              </>
+            ) : null
+          }
+        />
+        <Row label="Ведёт" value={event.externalOwner} />
+        {event.type === "INTENSIVE" && (
+          <Row
+            label="Интенсив"
+            value={[event.intensiveCycle, event.intensiveMeeting ? `встреча ${event.intensiveMeeting}${event.intensiveTotal ? ` из ${event.intensiveTotal}` : ""}` : null]
+              .filter(Boolean)
+              .join(" · ")}
+          />
         )}
         {event.driveFolderUrl && (
-          <a href={event.driveFolderUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-ink underline">
-            Папка на Google Диске
-          </a>
+          <Row
+            label="Материалы"
+            value={
+              <a href={event.driveFolderUrl} target="_blank" rel="noreferrer" className="text-gold underline">
+                папка
+              </a>
+            }
+          />
         )}
-      </section>
+      </dl>
+      {event.description && (
+        <div className="markdown text-sm text-ink" dangerouslySetInnerHTML={{ __html: renderMarkdown(event.description) }} />
+      )}
 
-      <section className="rounded border border-line bg-surface p-4">
-        <h2 className="mb-2 text-sm font-bold text-ink">Гость</h2>
-        {event.guestName ? (
-          <div className="text-sm text-ink">
-            <p className="font-bold">{event.guestName}</p>
-            {event.guestOrganization && <p className="text-muted">{event.guestOrganization}</p>}
-            {event.guestTopic && <p className="mt-1">{event.guestTopic}</p>}
-            <p className="mt-1 text-muted">Статус: {GUEST_STATUS_LABELS[event.guestStatus]}</p>
+      {canEdit && (
+        <details className="rounded-lg border border-line bg-bg p-3">
+          <summary className="cursor-pointer text-sm font-bold text-gold">Изменить карточку</summary>
+          <div className="mt-3">
+            <SpeakerForm
+              action={updateSpeakerAction.bind(null, event.id)}
+              submitLabel="Сохранить карточку"
+              typeLocked={event.tasks.length > 0}
+              showDrive
+              defaults={{
+                title: event.title,
+                type: event.type,
+                guestName: event.guestName,
+                guestOccupation: event.guestOccupation,
+                guestOrganization: event.guestOrganization,
+                guestTopic: event.guestTopic,
+                format: event.format,
+                speakerWindowStart: iso(event.speakerWindowStart),
+                speakerWindowEnd: iso(event.speakerWindowEnd),
+                externalOwner: event.externalOwner,
+                description: event.description,
+                driveFolderUrl: event.driveFolderUrl,
+                intensiveCycle: event.intensiveCycle,
+                intensiveMeeting: event.intensiveMeeting,
+                intensiveTotal: event.intensiveTotal
+              }}
+            />
           </div>
-        ) : (
-          <p className="text-sm text-muted">Гость пока не выбран.</p>
-        )}
-      </section>
+        </details>
+      )}
 
-      {canManage && (
-        <details className="rounded border border-line bg-surface p-4">
-          <summary className="cursor-pointer text-sm font-bold text-gold">Изменить данные мероприятия</summary>
-          <form action={updateOverviewAction.bind(null, event.id)} className="mt-3 space-y-3">
-            <div>
-              <label className="mb-1 block text-xs text-muted">Название</label>
-              <input name="title" defaultValue={event.title} className="w-full rounded border border-line bg-bg px-2 py-1.5 text-sm" />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-muted">Тип мероприятия</label>
-              <select
-                name="type"
-                defaultValue={event.type}
-                disabled={event.tasks.length > 0}
-                className="w-full rounded border border-line bg-bg px-2 py-1.5 text-sm disabled:opacity-60"
-              >
-                {Object.entries(EVENT_TYPE_LABELS).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-              {event.tasks.length > 0 && (
-                <p className="mt-1 text-xs text-muted">Тип нельзя менять после разворачивания плана задач.</p>
-              )}
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-muted">Описание (markdown)</label>
-              <textarea
-                name="description"
-                defaultValue={event.description ?? ""}
-                rows={6}
-                className="w-full rounded border border-line bg-bg px-2 py-1.5 text-sm"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-muted">Лид мероприятия</label>
-              <select name="leadId" defaultValue={event.leadId ?? ""} className="w-full rounded border border-line bg-bg px-2 py-1.5 text-sm">
-                <option value="">Не назначен</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {displayName(u)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1 block text-xs text-muted">Аудитория</label>
-                <input name="venue" defaultValue={event.venue ?? ""} className="w-full rounded border border-line bg-bg px-2 py-1.5 text-sm" />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs text-muted">Ссылка на папку Диска</label>
-                <input
-                  name="driveFolderUrl"
-                  defaultValue={event.driveFolderUrl ?? ""}
-                  className="w-full rounded border border-line bg-bg px-2 py-1.5 text-sm"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1 block text-xs text-muted">Гость: имя</label>
-                <input name="guestName" defaultValue={event.guestName ?? ""} className="w-full rounded border border-line bg-bg px-2 py-1.5 text-sm" />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs text-muted">Гость: организация</label>
-                <input
-                  name="guestOrganization"
-                  defaultValue={event.guestOrganization ?? ""}
-                  className="w-full rounded border border-line bg-bg px-2 py-1.5 text-sm"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-muted">Гость: тема</label>
-              <input name="guestTopic" defaultValue={event.guestTopic ?? ""} className="w-full rounded border border-line bg-bg px-2 py-1.5 text-sm" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1 block text-xs text-muted">Статус гостя</label>
-                <select name="guestStatus" defaultValue={event.guestStatus} className="w-full rounded border border-line bg-bg px-2 py-1.5 text-sm">
-                  {Object.entries(GUEST_STATUS_LABELS).map(([k, v]) => (
-                    <option key={k} value={k}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs text-muted">Ожидаемая посещаемость</label>
-                <input
-                  type="number"
-                  name="expectedAttendance"
-                  defaultValue={event.expectedAttendance ?? ""}
-                  className="w-full rounded border border-line bg-bg px-2 py-1.5 text-sm"
-                />
-              </div>
-            </div>
-            <button type="submit" className="rounded bg-gold px-3 py-1.5 text-sm font-bold text-bg hover:bg-gold/90">
-              Сохранить
+      {canCancel && (
+        <details>
+          <summary className="cursor-pointer text-xs text-muted hover:text-danger">Отменить мероприятие</summary>
+          <form action={cancelEventAction.bind(null, event.id)} className="mt-2 flex flex-wrap gap-2">
+            <input name="reason" required placeholder="Причина отмены" className="min-w-0 flex-1 rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink" />
+            <button type="submit" className="rounded-lg border border-danger/50 px-3 py-2 text-sm font-bold text-danger">
+              Отменить
             </button>
           </form>
         </details>
@@ -151,4 +112,3 @@ export function OverviewTab({
     </div>
   );
 }
-

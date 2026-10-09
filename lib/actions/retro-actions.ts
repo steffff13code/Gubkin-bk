@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { friendlyError } from "@/lib/errors";
-import { canManageEvent, PermissionError, requireUser } from "@/lib/permissions";
+import { requireRight } from "@/lib/permissions";
 import { autoCompleteTasks } from "@/lib/tasks/service";
 
 async function runOrRedirect(eventId: string, fn: () => Promise<void>): Promise<never> {
@@ -13,18 +13,13 @@ async function runOrRedirect(eventId: string, fn: () => Promise<void>): Promise<
   } catch (e) {
     error = friendlyError(e, "Не удалось выполнить действие.");
   }
-  const params = new URLSearchParams({ tab: "itogi" });
-  if (error) params.set("error", error);
-  redirect(`/events/${eventId}?${params.toString()}`);
+  redirect(`/events/${eventId}${error ? `?error=${encodeURIComponent(error)}` : ""}`);
 }
 
 export async function saveRetroAction(eventId: string, formData: FormData): Promise<void> {
   await runOrRedirect(eventId, async () => {
-    const user = await requireUser();
+    const user = await requireRight("FINISH");
     const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId } });
-    if (!canManageEvent(user, event)) {
-      throw new PermissionError("Заполнить итоги может только лид мероприятия или руководитель клуба.");
-    }
     if (event.stage !== "DONE" && event.stage !== "CLOSED") {
       throw new Error("Итоги заполняются после того, как мероприятие отмечено проведённым.");
     }

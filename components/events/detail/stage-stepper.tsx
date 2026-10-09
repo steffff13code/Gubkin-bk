@@ -1,19 +1,13 @@
 import clsx from "clsx";
 import type { EventStage } from "@prisma/client";
+import { BOARD_STAGES, EVENT_STAGE_LABELS } from "@/lib/labels";
 
-const STEPS: { stage: EventStage; label: string }[] = [
-  { stage: "IDEA", label: "Идея" },
-  { stage: "APPROVAL", label: "Согласование" },
-  { stage: "PLANNING", label: "Планирование" },
-  { stage: "IN_PROGRESS", label: "Подготовка" },
-  { stage: "DONE", label: "Проведено" },
-  { stage: "CLOSED", label: "Закрыто" }
-];
+const STEPS = BOARD_STAGES.map((stage) => ({ stage, label: EVENT_STAGE_LABELS[stage] }));
 
 /** Шкала этапов: где мероприятие сейчас и что уже пройдено. */
 export function StageStepper({ stage }: { stage: EventStage }) {
   if (stage === "REJECTED") {
-    return <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm font-bold text-danger">Отклонено</p>;
+    return <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm font-bold text-danger">{EVENT_STAGE_LABELS.REJECTED}</p>;
   }
   const current = STEPS.findIndex((s) => s.stage === stage);
   return (

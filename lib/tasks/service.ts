@@ -7,10 +7,13 @@ import {
   type DepartmentAssignments
 } from "@/lib/tasks/generate";
 import { calendarDay } from "@/lib/time";
+import { notifyStep } from "@/lib/notifications/roles";
 
 async function loadDepartmentAssignments(): Promise<DepartmentAssignments> {
+  // Только действующие аккаунты; аккаунт роли идёт последним и перекрывает остальных.
   const rows = await prisma.userDepartment.findMany({
-    where: { position: { in: ["HEAD", "DEPUTY"] } }
+    where: { position: { in: ["HEAD", "DEPUTY"] }, user: { isActive: true } },
+    orderBy: { user: { isRoleAccount: "asc" } }
   });
   const assignments: DepartmentAssignments = {};
   for (const row of rows) {
@@ -81,6 +84,12 @@ export async function recalcTasksOnDateChange(
 
 /** Срабатывание событийного триггера — назначает срок задачам, которые его ждали. */
 export async function fireTaskTrigger(eventId: string, triggerEvent: TaskTriggerEvent, firedAt: Date = new Date()) {
+  // «Пропуск готов»: отмечаем в карточке и зовём Event-отдел и Контент.
+  if (triggerEvent === "SECURITY_ANSWERED") {
+    const marked = await prisma.event.updateMany({ where: { id: eventId, passReadyAt: null }, data: { passReadyAt: firedAt } });
+    if (marked.count > 0) await notifyStep(eventId, "PASS_READY");
+  }
+
   const pending = await prisma.task.findMany({
     where: { eventId, triggerEvent, dueDate: null }
   });

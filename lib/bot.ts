@@ -15,37 +15,40 @@ export function getBot(): Bot | null {
   botInstance.command("start", async (ctx) => {
     const telegramId = ctx.from?.id ? String(ctx.from.id) : null;
     if (!telegramId) return;
-    const username = ctx.from?.username ?? null;
+    const label = ctx.from?.username ? `@${ctx.from.username}` : ctx.from?.first_name ?? null;
     const payload = typeof ctx.match === "string" ? ctx.match.trim() : "";
 
-    // Привязка по персональной ссылке из профиля на сайте.
+    // Подписка на уведомления роли по ссылке из профиля на сайте. На одну роль — сколько угодно человек;
+    // один Telegram подписан на одну роль (переподключение переносит подписку).
     const userId = payload ? verifyTelegramLinkToken(payload) : null;
     if (userId) {
       const user = await prisma.user.findUnique({ where: { id: userId } });
-      if (!user) {
-        await ctx.reply("Не нашёл ваш аккаунт. Откройте профиль на сайте и нажмите «Подключить Telegram» ещё раз.");
+      if (!user || !user.isActive) {
+        await ctx.reply("Не нашёл роль. Откройте профиль на сайте и нажмите «Подключить Telegram» ещё раз.");
         return;
       }
-      // Один Telegram — один человек: отвязываем от прежнего аккаунта, если был.
-      await prisma.user.updateMany({ where: { telegramId, NOT: { id: userId } }, data: { telegramId: null, botStarted: false } });
-      await prisma.user.update({ where: { id: userId }, data: { telegramId, username, botStarted: true } });
-      await ctx.reply(
-        `Готово, ${user.firstName}! Теперь сюда будут приходить напоминания о ваших задачах и мероприятиях Бизнес-клуба Губкина.`
-      );
+      await prisma.telegramSubscription.upsert({
+        where: { telegramId },
+        create: { userId, telegramId, label },
+        update: { userId, label }
+      });
+      await ctx.reply(`Готово! Теперь сюда будут приходить уведомления роли «${user.firstName}». Отключить — команда /stop.`);
       return;
     }
 
-    // Уже привязан — просто включаем уведомления.
-    const linked = await prisma.user.findUnique({ where: { telegramId } });
-    if (linked) {
-      await prisma.user.update({ where: { id: linked.id }, data: { botStarted: true, username } });
-      await ctx.reply(`Уведомления включены, ${linked.firstName}.`);
+    const sub = await prisma.telegramSubscription.findUnique({ where: { telegramId }, include: { user: true } });
+    if (sub) {
+      await ctx.reply(`Вы получаете уведомления роли «${sub.user.firstName}». Отключить — команда /stop.`);
       return;
     }
+    await ctx.reply("Чтобы получать уведомления, войдите на сайт под своей ролью, откройте «Профиль» и нажмите «Подключить Telegram».");
+  });
 
-    await ctx.reply(
-      "Чтобы получать напоминания, войдите на сайт платформы, откройте «Профиль» и нажмите «Подключить Telegram»."
-    );
+  botInstance.command("stop", async (ctx) => {
+    const telegramId = ctx.from?.id ? String(ctx.from.id) : null;
+    if (!telegramId) return;
+    const removed = await prisma.telegramSubscription.deleteMany({ where: { telegramId } });
+    await ctx.reply(removed.count ? "Уведомления отключены." : "Вы и так не подписаны.");
   });
 
   return botInstance;

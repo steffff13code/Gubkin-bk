@@ -3,9 +3,7 @@
 import { redirect } from "next/navigation";
 import type {
   DepartmentCode,
-  DepartmentPosition,
   EventType,
-  Role,
   TaskAutoComplete,
   TaskGroup,
   TaskTriggerEvent,
@@ -13,12 +11,14 @@ import type {
 } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { friendlyError } from "@/lib/errors";
-import { requireRole } from "@/lib/permissions";
-import { LOGIN_ROLES, setRolePassword, type LoginRole } from "@/lib/role-passwords";
-import { ROLE_LABELS } from "@/lib/labels";
-import { deleteDemoData } from "@/lib/demo";
+import { requireRight } from "@/lib/permissions";
+import { setAdminPassword, setDepartmentsPassword } from "@/lib/passwords";
+import { setChatTags } from "@/lib/role-accounts";
+import { isRoleKey } from "@/lib/roles";
 
-async function runOrRedirect(tab: "people" | "templates" | "access", fn: () => Promise<string | void>): Promise<never> {
+type Tab = "roles" | "access" | "templates" | "service" | "rules";
+
+async function runOrRedirect(tab: Tab, fn: () => Promise<string | void>): Promise<never> {
   let error: string | null = null;
   let notice: string | null = null;
   try {
@@ -32,90 +32,81 @@ async function runOrRedirect(tab: "people" | "templates" | "access", fn: () => P
   redirect(`/settings?${params.toString()}`);
 }
 
-export async function createUserAction(formData: FormData): Promise<void> {
-  await runOrRedirect("people", async () => {
-    await requireRole("ADMIN");
-    const firstName = String(formData.get("firstName") || "").trim();
-    const lastName = String(formData.get("lastName") || "").trim() || null;
-    const role = String(formData.get("role") || "MEMBER") as Role;
-    const departmentCode = (String(formData.get("departmentCode") || "") || null) as DepartmentCode | null;
-    const position = String(formData.get("position") || "MEMBER") as DepartmentPosition;
-    if (!firstName) throw new Error("Укажите имя.");
-
-    const user = await prisma.user.create({ data: { firstName, lastName, role } });
-    if (departmentCode) {
-      await prisma.userDepartment.create({ data: { userId: user.id, departmentCode, position } });
-    }
-    return `Добавлен: ${firstName}${lastName ? " " + lastName : ""}. Теперь он может войти, выбрав себя в списке.`;
+/** Кого тегать в рабочем чате для роли — ники через пробел. */
+export async function setChatTagsAction(formData: FormData): Promise<void> {
+  await runOrRedirect("roles", async () => {
+    await requireRight("SETTINGS");
+    const role = String(formData.get("role") || "");
+    if (!isRoleKey(role)) throw new Error("Неизвестная роль.");
+    await setChatTags(role, String(formData.get("tags") || ""));
+    return "Теги сохранены.";
   });
 }
 
-export async function renameUserAction(userId: string, formData: FormData): Promise<void> {
-  await runOrRedirect("people", async () => {
-    await requireRole("ADMIN");
-    const firstName = String(formData.get("firstName") || "").trim();
-    const lastName = String(formData.get("lastName") || "").trim() || null;
-    if (!firstName) throw new Error("Имя не может быть пустым.");
-    await prisma.user.update({ where: { id: userId }, data: { firstName, lastName } });
-  });
-}
-
-export async function setRolePasswordAction(formData: FormData): Promise<void> {
+export async function setAdminPasswordAction(formData: FormData): Promise<void> {
   await runOrRedirect("access", async () => {
-    await requireRole("ADMIN");
-    const role = String(formData.get("role") || "") as LoginRole;
+    await requireRight("SETTINGS");
     const password = String(formData.get("password") || "");
-    if (!LOGIN_ROLES.includes(role)) throw new Error("Неизвестная роль.");
-    if (password.length < 6) throw new Error("Пароль — минимум 6 символов.");
-    await setRolePassword(role, password);
-    return `Пароль роли «${ROLE_LABELS[role]}» изменён. Сообщите его людям с этой ролью.`;
+    const repeat = String(formData.get("repeat") || "");
+    if (password.trim().length < 8) throw new Error("Пароль — минимум 8 символов.");
+    if (password !== repeat) throw new Error("Пароли не совпадают.");
+    await setAdminPassword(password);
+    return "Пароль администратора изменён.";
   });
 }
 
-/** Удаляет демо-данные сида: демо-мероприятия, идеи и тестовых людей. Их следы переходят к текущему админу. */
-export async function deleteDemoDataAction(): Promise<void> {
+export async function setDepartmentsPasswordAction(formData: FormData): Promise<void> {
   await runOrRedirect("access", async () => {
-    const admin = await requireRole("ADMIN");
-    const me = await prisma.user.findUniqueOrThrow({ where: { id: admin.id } });
-    if (me.isDemo) {
-      throw new Error("Вы вошли как демо-пользователь. Добавьте себя в «Люди», войдите под своим именем и повторите.");
+    await requireRight("SETTINGS");
+    const enabled = formData.get("enabled") === "on";
+    const password = String(formData.get("password") || "");
+    if (password && password.trim().length < 6) throw new Error("Общий пароль отделов — минимум 6 символов.");
+    await setDepartmentsPassword(enabled, password || undefined);
+    return enabled ? "Общий пароль для отделов включён." : "Общий пароль для отделов выключен — в отделы входят без пароля.";
+  });
+}
+
+/** Удаление всех мероприятий — только Администратор, с подтверждением словом «УДАЛИТЬ». */
+export async function deleteAllEventsAction(formData: FormData): Promise<void> {
+  await runOrRedirect("service", async () => {
+    const user = await requireRight("SETTINGS");
+    if (String(formData.get("confirm") || "").trim() !== "УДАЛИТЬ") {
+      throw new Error("Чтобы удалить, введите слово УДАЛИТЬ большими буквами.");
     }
-    const count = await deleteDemoData(me.id);
-    return `Демо-данные удалены (людей: ${count}). Можно добавлять настоящих участников.`;
+    const count = await prisma.event.count();
+    await prisma.idea.updateMany({ data: { convertedEventId: null } });
+    await prisma.event.deleteMany({});
+    await prisma.activityLog.create({ data: { userId: user.id, action: "EVENTS_PURGED", payload: { count } } });
+    return `Удалено мероприятий: ${count}.`;
   });
 }
 
-export async function updateUserAction(userId: string, formData: FormData): Promise<void> {
-  await runOrRedirect("people", async () => {
-    const admin = await requireRole("ADMIN");
-    const role = String(formData.get("role") || "MEMBER") as Role;
-    const isActive = formData.get("isActive") === "on";
-    if (userId === admin.id && (role !== "ADMIN" || !isActive)) {
-      throw new Error("Нельзя снять с себя роль руководителя клуба или отключить себя — попросите другого руководителя клуба.");
+/** Общие правила регламента (markdown) — правит Администратор. */
+export async function saveGeneralRulesAction(formData: FormData): Promise<void> {
+  let error: string | null = null;
+  try {
+    const user = await requireRight("SETTINGS");
+    const body = String(formData.get("body") || "").trim();
+    if (!body) throw new Error("Текст правил не может быть пустым.");
+    const existing = await prisma.regulation.findUnique({ where: { slug: "general-rules" } });
+    if (existing) {
+      if (existing.body !== body) {
+        await prisma.$transaction([
+          prisma.regulationVersion.create({
+            data: { regulationId: existing.id, body: existing.body, editedById: existing.updatedById, createdAt: existing.updatedAt }
+          }),
+          prisma.regulation.update({ where: { id: existing.id }, data: { body, updatedById: user.id } })
+        ]);
+      }
+    } else {
+      await prisma.regulation.create({
+        data: { slug: "general-rules", title: "Общие правила", body, sortOrder: 0, updatedById: user.id }
+      });
     }
-    await prisma.user.update({ where: { id: userId }, data: { role, isActive } });
-  });
-}
-
-export async function addUserDepartmentAction(userId: string, formData: FormData): Promise<void> {
-  await runOrRedirect("people", async () => {
-    await requireRole("ADMIN");
-    const departmentCode = String(formData.get("departmentCode") || "") as DepartmentCode;
-    const position = String(formData.get("position") || "MEMBER") as DepartmentPosition;
-    if (!departmentCode) throw new Error("Выберите отдел.");
-    await prisma.userDepartment.upsert({
-      where: { userId_departmentCode: { userId, departmentCode } },
-      create: { userId, departmentCode, position },
-      update: { position }
-    });
-  });
-}
-
-export async function removeUserDepartmentAction(userDepartmentId: string): Promise<void> {
-  await runOrRedirect("people", async () => {
-    await requireRole("ADMIN");
-    await prisma.userDepartment.delete({ where: { id: userDepartmentId } });
-  });
+  } catch (e) {
+    error = friendlyError(e);
+  }
+  redirect(`/regulation?tab=rules${error ? `&error=${encodeURIComponent(error)}` : "&notice=saved"}`);
 }
 
 function templateDataFromForm(formData: FormData) {
@@ -127,6 +118,7 @@ function templateDataFromForm(formData: FormData) {
   const department = String(formData.get("department") || "") || null;
   const dayOffsetStr = String(formData.get("dayOffsetMinutes") ?? "").trim();
   const dayTimeLabel = String(formData.get("dayTimeLabel") || "").trim() || null;
+  const description = String(formData.get("description") || "").trim() || null;
 
   if (triggerType === "EVENT" && !triggerEvent) {
     throw new Error("Для задачи «по событию» выберите, какое событие её запускает.");
@@ -146,13 +138,14 @@ function templateDataFromForm(formData: FormData) {
     group: String(formData.get("group") || "BEFORE") as TaskGroup,
     sortOrder: Number(formData.get("sortOrder") || 0),
     dayOffsetMinutes: dayOffsetStr ? Number(dayOffsetStr) : null,
-    dayTimeLabel
+    dayTimeLabel,
+    description
   };
 }
 
 export async function createTaskTemplateAction(formData: FormData): Promise<void> {
   await runOrRedirect("templates", async () => {
-    await requireRole("ADMIN");
+    await requireRight("SETTINGS");
     const data = templateDataFromForm(formData);
     if (!data.title || !data.eventType) throw new Error("Укажите тип мероприятия и название задачи.");
     await prisma.taskTemplate.create({ data });
@@ -161,7 +154,7 @@ export async function createTaskTemplateAction(formData: FormData): Promise<void
 
 export async function updateTaskTemplateAction(templateId: string, formData: FormData): Promise<void> {
   await runOrRedirect("templates", async () => {
-    await requireRole("ADMIN");
+    await requireRight("SETTINGS");
     // Тип мероприятия у существующей задачи шаблона не меняется — в форме правки его нет.
     const { eventType: _eventType, ...data } = templateDataFromForm(formData);
     void _eventType;
@@ -172,7 +165,7 @@ export async function updateTaskTemplateAction(templateId: string, formData: For
 
 export async function deleteTaskTemplateAction(templateId: string): Promise<void> {
   await runOrRedirect("templates", async () => {
-    await requireRole("ADMIN");
+    await requireRight("SETTINGS");
     await prisma.taskTemplate.delete({ where: { id: templateId } });
   });
 }

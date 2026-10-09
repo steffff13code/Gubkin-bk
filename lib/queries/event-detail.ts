@@ -14,6 +14,7 @@ export async function getEventDetail(id: string) {
       },
       attachments: { include: { addedBy: true }, orderBy: { createdAt: "desc" } },
       retro: true,
+      dateOptions: { orderBy: [{ date: "asc" }, { createdAt: "asc" }] },
       activityLogs: { include: { user: true }, orderBy: { createdAt: "desc" }, take: 50 }
     }
   });

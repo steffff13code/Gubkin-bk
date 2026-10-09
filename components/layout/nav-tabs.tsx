@@ -4,26 +4,28 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 
-/** Главное меню — всего два раздела. Счётчик на «Мои задачи» — сколько просрочено. */
-export function NavTabs({ overdueCount, showPeople }: { overdueCount: number; showPeople: boolean }) {
+/** Главное меню. Счётчик на «Мои задачи» — сколько просрочено у роли. */
+export function NavTabs({ overdueCount, showSettings }: { overdueCount: number; showSettings: boolean }) {
   const pathname = usePathname();
   const items = [
-    { href: "/", label: "Мероприятия", active: pathname === "/" || pathname.startsWith("/events") },
-    { href: "/my", label: "Мои задачи", active: pathname.startsWith("/my"), badge: overdueCount },
-    ...(showPeople ? [{ href: "/settings", label: "Люди", active: pathname.startsWith("/settings") }] : [])
+    { href: "/", label: "Мероприятия", short: "События", active: pathname === "/" || pathname.startsWith("/events") },
+    { href: "/my", label: "Мои задачи", short: "Задачи", active: pathname.startsWith("/my"), badge: overdueCount },
+    { href: "/regulation", label: "Регламент", short: "Регламент", active: pathname.startsWith("/regulation") },
+    ...(showSettings ? [{ href: "/settings", label: "Настройки", short: "Настр.", active: pathname.startsWith("/settings") }] : [])
   ];
   return (
-    <nav className="flex gap-1">
+    <nav className="flex min-w-0 gap-0.5 overflow-x-auto sm:gap-1">
       {items.map((item) => (
         <Link
           key={item.href}
           href={item.href}
           className={clsx(
-            "relative flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold sm:px-4",
+            "relative flex shrink-0 items-center gap-1 rounded-lg px-2 py-2 text-sm font-bold sm:px-3",
             item.active ? "bg-surface2 text-ink" : "text-muted hover:text-ink"
           )}
         >
-          {item.label}
+          <span className="sm:hidden">{item.short}</span>
+          <span className="hidden sm:inline">{item.label}</span>
           {!!item.badge && (
             <span
               title={`Просрочено: ${item.badge}`}

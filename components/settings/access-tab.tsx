@@ -1,74 +1,56 @@
-import { ROLE_LABELS } from "@/lib/labels";
-import { LOGIN_ROLES, type LoginRole } from "@/lib/role-passwords";
-import { deleteDemoDataAction, setRolePasswordAction } from "@/lib/actions/settings-actions";
+import { setAdminPasswordAction, setDepartmentsPasswordAction } from "@/lib/actions/settings-actions";
 
-const ROLE_HINT: Record<LoginRole, string> = {
-  MEMBER: "Закрывают свои задачи, берут свободные задачи отдела, прикрепляют ссылки.",
-  LEAD: "Всё, что участники, плюс создают мероприятия, ставят даты, назначают задачи, ведут свои мероприятия.",
-  ADMIN: "Всё, плюс согласование, любые мероприятия, люди и роли, шаблоны задач, удаление."
-};
+const input = "w-full rounded-lg border border-line bg-bg px-3 py-2.5 text-base text-ink placeholder:text-muted sm:text-sm";
+const button = "rounded-lg bg-gold px-4 py-2.5 text-sm font-bold text-bg hover:bg-gold/90";
 
-export function AccessTab({ defaultRoles, demoCount }: { defaultRoles: LoginRole[]; demoCount: number }) {
+export function AccessTab({ adminPasswordSet, departmentsPassword }: { adminPasswordSet: boolean; departmentsPassword: boolean }) {
   return (
     <div className="space-y-4">
       <section className="rounded-xl border border-line bg-surface p-4">
-        <h2 className="mb-1 text-sm font-bold text-ink">Пароли ролей</h2>
-        <p className="mb-3 text-xs text-muted">
-          У каждой роли один пароль: человек выбирает себя в списке и вводит пароль своей роли. Смена пароля не
-          выкидывает тех, кто уже вошёл.
+        <h2 className="font-bold text-ink">Пароль администратора</h2>
+        <p className="mt-1 text-sm text-muted">
+          {adminPasswordSet
+            ? "Пароль задан. Хранится только в виде хэша — посмотреть его нельзя, можно заменить."
+            : "Пароль не задан. Укажите ADMIN_PASSWORD в настройках сервера или задайте здесь."}{" "}
+          Можно писать по-русски и с пробелами, минимум 8 символов.
         </p>
-        <div className="space-y-3">
-          {LOGIN_ROLES.map((role) => (
-            <form key={role} action={setRolePasswordAction} className="rounded-lg border border-line bg-bg p-3">
-              <input type="hidden" name="role" value={role} />
-              <div className="mb-2 flex flex-wrap items-center gap-2">
-                <span className="text-sm font-bold text-ink">{ROLE_LABELS[role]}</span>
-                {defaultRoles.includes(role) ? (
-                  <span className="rounded bg-danger/15 px-1.5 py-0.5 text-[10px] font-bold text-danger">пароль по умолчанию</span>
-                ) : (
-                  <span className="rounded bg-success/15 px-1.5 py-0.5 text-[10px] font-bold text-success">свой пароль</span>
-                )}
-              </div>
-              <p className="mb-2 text-xs text-muted">{ROLE_HINT[role]}</p>
-              <div className="flex flex-wrap gap-2">
-                <input
-                  name="password"
-                  type="text"
-                  minLength={6}
-                  required
-                  autoComplete="off"
-                  placeholder="Новый пароль, от 6 символов"
-                  className="flex-1 rounded border border-line bg-surface px-2 py-1.5 text-sm text-ink"
-                />
-                <button type="submit" className="rounded bg-gold px-3 py-1.5 text-sm font-bold text-bg hover:bg-gold/90">
-                  Сменить
-                </button>
-              </div>
-            </form>
-          ))}
-        </div>
+        <form action={setAdminPasswordAction} className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+          <label>
+            <span className="mb-1 block text-xs font-bold text-ink">Новый пароль</span>
+            <input type="password" name="password" required minLength={8} autoComplete="new-password" className={input} />
+          </label>
+          <label>
+            <span className="mb-1 block text-xs font-bold text-ink">Ещё раз</span>
+            <input type="password" name="repeat" required minLength={8} autoComplete="new-password" className={input} />
+          </label>
+          <button type="submit" className={button}>
+            Сменить пароль
+          </button>
+        </form>
       </section>
 
       <section className="rounded-xl border border-line bg-surface p-4">
-        <h2 className="mb-1 text-sm font-bold text-ink">Демо-данные</h2>
-        {demoCount > 0 ? (
-          <>
-            <p className="mb-3 text-xs text-muted">
-              Сейчас в системе {demoCount} демо-записей: тестовые люди по отделам, пример мероприятия с планом, три идеи.
-              Перед запуском удалите их. Сначала добавьте себя во вкладке «Люди» руководителем клуба и войдите под своим именем.
-            </p>
-            <details>
-              <summary className="cursor-pointer text-sm font-bold text-danger">Удалить демо-данные</summary>
-              <form action={deleteDemoDataAction} className="mt-2">
-                <button type="submit" className="rounded border border-danger/40 px-3 py-1.5 text-sm font-bold text-danger">
-                  Да, удалить тестовых людей, пример мероприятия и демо-идеи
-                </button>
-              </form>
-            </details>
-          </>
-        ) : (
-          <p className="text-xs text-muted">Демо-данных нет — платформа готова к работе.</p>
-        )}
+        <h2 className="font-bold text-ink">Общий пароль для отделов</h2>
+        <p className="mt-1 text-sm text-muted">
+          {departmentsPassword
+            ? "Включён: чтобы войти в любой отдел, нужно ввести общий пароль."
+            : "Выключен: в отделы входят одним нажатием, без пароля. Администратор входит только по своему паролю."}
+        </p>
+        <form action={setDepartmentsPasswordAction} className="mt-3 space-y-2">
+          <label className="flex items-center gap-2 text-sm text-ink">
+            <input type="checkbox" name="enabled" defaultChecked={departmentsPassword} className="h-4 w-4 accent-[#E8B86D]" />
+            Спрашивать общий пароль при входе в отдел
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-bold text-ink">
+              Общий пароль {departmentsPassword && <span className="font-normal text-muted">(оставьте пустым, чтобы не менять)</span>}
+            </span>
+            <input type="password" name="password" minLength={6} autoComplete="new-password" className={input} />
+          </label>
+          <button type="submit" className={button}>
+            Сохранить
+          </button>
+        </form>
       </section>
     </div>
   );
