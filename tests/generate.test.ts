@@ -33,7 +33,7 @@ function template(overrides: Partial<TemplateLike> = {}): TemplateLike {
 describe("resolveAssignees", () => {
   const assignments: DepartmentAssignments = {
     GUESTS: { headId: "head-guests", deputyId: "deputy-guests" },
-    SECURITY: { headId: "head-security", deputyId: null }
+    PR: { headId: "head-pr", deputyId: null }
   };
 
   it("без отдела назначает лида мероприятия", () => {
@@ -58,16 +58,16 @@ describe("resolveAssignees", () => {
   });
 
   it("если в отделе никого нет — оба поля пустые", () => {
-    expect(resolveAssignees("PR", true, assignments, "lead-1")).toEqual({
+    expect(resolveAssignees("CONTENT", true, assignments, "lead-1")).toEqual({
       assigneeId: null,
       secondAssigneeId: null
     });
   });
 
-  it("ЦБ без зама — второй в контуре руководитель Гостей (регламент: «в контуре двое»)", () => {
-    expect(resolveAssignees("SECURITY", true, assignments, "lead-1")).toEqual({
-      assigneeId: "head-security",
-      secondAssigneeId: "head-guests"
+  it("отдел без зама — второго исполнителя нет (подмены другим отделом больше нет)", () => {
+    expect(resolveAssignees("PR", true, assignments, "lead-1")).toEqual({
+      assigneeId: "head-pr",
+      secondAssigneeId: null
     });
   });
 
@@ -113,7 +113,7 @@ describe("buildTaskRows", () => {
       template({ id: "a", department: "GUESTS", offsetDays: -45 }),
       template({
         id: "b",
-        department: "SECURITY",
+        department: "PR",
         triggerType: "EVENT",
         offsetDays: 7,
         triggerEvent: "SECURITY_SUBMITTED",
@@ -125,6 +125,11 @@ describe("buildTaskRows", () => {
     expect(rows[0]).toMatchObject({ templateId: "a", assigneeId: "head-guests", status: "TODO" });
     expect(rows[0].dueDate?.toISOString()).toBe("2026-10-06T00:00:00.000Z");
     expect(rows[1]).toMatchObject({ templateId: "b", assigneeId: null, dueDate: null, firesTrigger: "SECURITY_ANSWERED" });
+  });
+
+  it("копирует описание «как сделать» из шаблона в задачу", () => {
+    const rows = buildTaskRows([template({ description: "Шаги" })], TARGET, NOW, assignments, "lead-1");
+    expect(rows[0].description).toBe("Шаги");
   });
 
   it("переносит тайминг дня мероприятия", () => {

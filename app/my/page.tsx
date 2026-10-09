@@ -2,20 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import clsx from "clsx";
 import { getCurrentUser } from "@/lib/auth";
-import { isAdmin } from "@/lib/permissions";
-import {
-  countUnassignedTasks,
-  getFreeDepartmentTasks,
-  getMyEvents,
-  getMyTasks,
-  getPendingApprovals,
-  getStuckEvents,
-  getTodayEvents,
-  type MyTask
-} from "@/lib/queries/my-day";
-import { DEPARTMENT_LABELS, DEPARTMENT_POSITION_LABELS, ROLE_LABELS, TASK_TRIGGER_EVENT_LABELS } from "@/lib/labels";
+import { getDecisions, getMyTasks, getTodayEvents, type MyTask } from "@/lib/queries/my-day";
+import { TASK_TRIGGER_EVENT_LABELS } from "@/lib/labels";
+import { ROLE_BY_KEY } from "@/lib/roles";
 import { formatDate } from "@/lib/time";
-import { assignToMeAction, toggleTaskAction } from "@/lib/actions/task-actions";
+import { toggleTaskAction } from "@/lib/actions/task-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -23,30 +14,11 @@ export default async function MyTasksPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/my");
 
-  const admin = isAdmin(user);
-  const [tasks, events, free, today, approvals, stuck, unassigned] = await Promise.all([
-    getMyTasks(user.id),
-    getMyEvents(user.id),
-    getFreeDepartmentTasks(user.departments.map((d) => d.code)),
-    getTodayEvents(),
-    admin ? getPendingApprovals() : Promise.resolve([]),
-    admin ? getStuckEvents() : Promise.resolve([]),
-    admin ? countUnassignedTasks() : Promise.resolve(0)
+  const [tasks, decisions, today] = await Promise.all([
+    getMyTasks(user.id, user.roleKey),
+    getDecisions(user.roleKey),
+    getTodayEvents()
   ]);
-
-  // Что ждёт решения именно этого человека.
-  const decisions: { href: string; text: string; action: string; danger?: boolean }[] = [
-    ...approvals.map((e) => ({ href: `/events/${e.id}`, text: e.title, action: "Согласовать" })),
-    ...events.led.filter((e) => e.stage === "IDEA").map((e) => ({ href: `/events/${e.id}`, text: e.title, action: "Отправить на согласование" })),
-    ...events.led.filter((e) => e.stage === "PLANNING").map((e) => ({ href: `/events/${e.id}`, text: e.title, action: "Указать окно дат" })),
-    ...events.led
-      .filter((e) => e.stage === "IN_PROGRESS" && !e.dateFixed)
-      .map((e) => ({ href: `/events/${e.id}`, text: e.title, action: "Зафиксировать дату после ЦБ" })),
-    ...events.led.filter((e) => e.needsRetro).map((e) => ({ href: `/events/${e.id}`, text: e.title, action: "Заполнить итоги" })),
-    ...stuck.map((e) => ({ href: `/events/${e.id}`, text: e.title, action: `Стоит ${e.ageDays} дн.`, danger: true })),
-    ...(unassigned > 0 ? [{ href: "/?view=list", text: `Задач без исполнителя: ${unassigned}`, action: "Раздать", danger: true }] : [])
-  ];
-
   const openCount = tasks.overdue.length + tasks.today.length + tasks.week.length + tasks.later.length + tasks.waiting.length;
 
   return (
@@ -54,8 +26,8 @@ export default async function MyTasksPage() {
       <div>
         <h1 className="text-2xl font-bold text-ink">Мои задачи</h1>
         <p className="mt-1 text-sm text-muted">
-          {user.firstName} · {ROLE_LABELS[user.role]}
-          {user.departments.map((d) => ` · ${DEPARTMENT_LABELS[d.code]} (${DEPARTMENT_POSITION_LABELS[d.position].toLowerCase()})`)}
+          {user.roleTitle}
+          {user.roleKey && ` — ${ROLE_BY_KEY[user.roleKey].does.toLowerCase()}`}
         </p>
       </div>
 
@@ -76,13 +48,16 @@ export default async function MyTasksPage() {
 
       {decisions.length > 0 && (
         <section className="rounded-xl border border-gold/40 bg-surface p-4">
-          <h2 className="mb-3 text-sm font-bold text-ink">Нужно ваше решение</h2>
+          <h2 className="mb-3 text-sm font-bold text-ink">Ваш шаг по мероприятиям</h2>
           <ul className="space-y-2">
             {decisions.map((d, i) => (
               <li key={i}>
-                <Link href={d.href} className="flex items-center gap-3 rounded-lg bg-bg px-3 py-2.5 text-sm hover:ring-1 hover:ring-gold/40">
-                  <span className="min-w-0 flex-1 text-ink">{d.text}</span>
-                  <span className={clsx("shrink-0 text-xs font-bold", d.danger ? "text-danger" : "text-gold")}>{d.action} →</span>
+                <Link
+                  href={`/events/${d.eventId}`}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-bg px-3 py-2.5 text-sm hover:ring-1 hover:ring-gold/40"
+                >
+                  <span className="min-w-0 flex-1 text-ink">{d.title}</span>
+                  <span className={clsx("text-xs font-bold", d.danger ? "text-danger" : "text-gold")}>{d.action} →</span>
                 </Link>
               </li>
             ))}
@@ -95,7 +70,7 @@ export default async function MyTasksPage() {
           <div className="py-6 text-center">
             <p className="text-3xl">✓</p>
             <p className="mt-2 font-bold text-ink">Открытых задач нет</p>
-            <p className="mt-1 text-sm text-muted">Задачи приходят сами, когда лид запускает подготовку мероприятия.</p>
+            <p className="mt-1 text-sm text-muted">Задачи приходят сами, когда у мероприятия фиксируется дата.</p>
           </div>
         ) : (
           <div className="space-y-5">
@@ -108,34 +83,8 @@ export default async function MyTasksPage() {
         )}
       </section>
 
-      {free.length > 0 && (
-        <section className="rounded-xl border border-line bg-surface p-4">
-          <h2 className="text-sm font-bold text-ink">Свободные задачи отдела</h2>
-          <p className="mb-3 text-xs text-muted">У этих задач нет исполнителя — возьмите, если можете.</p>
-          <ul className="divide-y divide-line">
-            {free.map((t) => (
-              <li key={t.id} className="flex items-center gap-3 py-2.5">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-ink">{t.title}</p>
-                  <Link href={`/events/${t.event.id}`} className="text-xs text-muted hover:text-gold">
-                    {t.event.title}
-                    {t.dueDate && ` · до ${formatDate(t.dueDate)}`}
-                  </Link>
-                </div>
-                <form action={assignToMeAction.bind(null, t.id)}>
-                  <input type="hidden" name="returnTo" value="/my" />
-                  <button type="submit" className="rounded-lg border border-line px-3 py-1.5 text-xs font-bold text-ink hover:border-gold">
-                    Взять себе
-                  </button>
-                </form>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
       <p className="text-center text-xs text-muted">
-        Напоминания в Telegram —{" "}
+        Уведомления в Telegram —{" "}
         <Link href="/profile" className="text-gold hover:underline">
           подключить в профиле
         </Link>

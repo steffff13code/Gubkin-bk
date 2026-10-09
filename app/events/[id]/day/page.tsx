@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { displayName, getCurrentUser } from "@/lib/auth";
-import { canManageEvent } from "@/lib/permissions";
+import { notFound, redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth";
+import { userCan, userCanCloseTask } from "@/lib/permissions";
 import { getEventDetail } from "@/lib/queries/event-detail";
 import { DEPARTMENT_LABELS } from "@/lib/labels";
 import { calendarDay, formatDate, formatDateLong } from "@/lib/time";
@@ -13,15 +13,16 @@ export const dynamic = "force-dynamic";
 
 export default async function EventDayPage({ params }: { params: { id: string } }) {
   const [user, event] = await Promise.all([getCurrentUser(), getEventDetail(params.id)]);
+  if (!user) redirect(`/login?next=/events/${params.id}/day`);
   if (!event) notFound();
 
-  const canManage = canManageEvent(user, event);
+  const canFinish = userCan(user, "FINISH");
   const locked = event.stage === "CLOSED" || event.stage === "REJECTED";
   const isToday = !!event.targetDate && calendarDay(event.targetDate).getTime() === calendarDay(new Date()).getTime();
 
   const dayTasks = event.tasks.filter((t) => t.group === "EVENT_DAY").sort((a, b) => a.sortOrder - b.sortOrder);
   const steps: TimelineStep[] = scheduleDay(dayTasks, event.timeSlot).map((t) => {
-    const mine = !!user && (t.assigneeId === user.id || t.secondAssigneeId === user.id);
+    const mine = t.department === user.roleKey;
     return {
       id: t.id,
       title: t.title,
@@ -31,8 +32,8 @@ export default async function EventDayPage({ params }: { params: { id: string } 
       at: t.at,
       label: t.dayTimeLabel,
       department: t.department ? DEPARTMENT_LABELS[t.department] : null,
-      people: [t.assignee, t.secondAssignee].filter((p): p is NonNullable<typeof p> => !!p).map(displayName),
-      canToggle: !locked && t.status !== "SKIPPED" && (mine || canManage),
+      people: [],
+      canToggle: !locked && t.status !== "SKIPPED" && userCanCloseTask(user, t),
       mine
     };
   });
@@ -70,7 +71,7 @@ export default async function EventDayPage({ params }: { params: { id: string } 
                 • {t.title}
                 <span className="text-muted">
                   {" "}
-                  · {t.department ? DEPARTMENT_LABELS[t.department] : "лид"} · до {formatDate(t.dueDate)}
+                  · {t.department ? DEPARTMENT_LABELS[t.department] : "все"} · до {formatDate(t.dueDate)}
                 </span>
               </li>
             ))}
@@ -87,13 +88,14 @@ export default async function EventDayPage({ params }: { params: { id: string } 
         <DayTimeline eventId={event.id} steps={steps} timeSlot={event.timeSlot} isToday={isToday} />
       )}
 
-      {canManage && event.stage === "IN_PROGRESS" && event.dateFixed && isToday && (
+      {canFinish && event.stage === "IN_PROGRESS" && event.dateFixed && isToday && (
         <form action={markDoneAction.bind(null, event.id)} className="mt-4">
+          <input type="hidden" name="returnTo" value="day" />
           <button type="submit" className="w-full rounded-lg bg-gold py-3 text-sm font-bold text-bg hover:bg-gold/90">
             Мероприятие прошло — отметить проведённым
           </button>
           <p className="mt-1 text-center text-xs text-muted">
-            После этого у Контента, Пиара и Гостей появятся задачи «после»: монтаж, фото, пост-отчёт, спасибо гостю.
+            После этого у отделов появятся задачи «после»: монтаж, фото, пост-отчёт, спасибо спикеру.
           </p>
         </form>
       )}

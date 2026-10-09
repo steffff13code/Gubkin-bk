@@ -15,7 +15,7 @@ export async function runStoplistCheck(now: Date = new Date()): Promise<Delivery
     where: { stage: "IN_PROGRESS", dateFixed: true, targetDate: { not: null } },
     include: { tasks: true }
   });
-  const admins = await prisma.user.findMany({ where: { role: "ADMIN", isActive: true } });
+  const admins = await prisma.user.findMany({ where: { role: "ADMIN", isActive: true, isRoleAccount: true } });
 
   for (const event of events) {
     if (!event.targetDate) continue;

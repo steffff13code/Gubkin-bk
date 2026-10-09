@@ -13,6 +13,7 @@ import {
   updateTaskTemplateAction
 } from "@/lib/actions/settings-actions";
 import type { EventType } from "@prisma/client";
+import { TEMPLATE_NOTES, TEMPLATE_TYPES } from "@/lib/tasks/lecture-template";
 
 export function TemplatesTab({ templates }: { templates: TaskTemplate[] }) {
   const byType = new Map<EventType, TaskTemplate[]>();
@@ -20,12 +21,22 @@ export function TemplatesTab({ templates }: { templates: TaskTemplate[] }) {
     byType.set(t.eventType, [...(byType.get(t.eventType) ?? []), t]);
   }
 
+  // Показываем типы из формы и старые типы, если у них остались задачи шаблона.
+  const types = (Object.keys(EVENT_TYPE_LABELS) as EventType[]).filter((t) => TEMPLATE_TYPES.includes(t) || byType.has(t));
+
   return (
-    <div className="space-y-6">
-      {Object.entries(EVENT_TYPE_LABELS).map(([type, label]) => (
-        <section key={type} className="rounded border border-line bg-surface p-3">
-          <h2 className="mb-2 text-sm font-bold text-ink">{label}</h2>
-          <div className="space-y-2">
+    <div className="space-y-4">
+      <p className="text-sm text-muted">
+        По шаблону разворачивается план задач, когда спикер подтвердил дату. Правка шаблона действует на новые
+        мероприятия, уже развёрнутые планы не меняются.
+      </p>
+      {types.map((type) => (
+        <details key={type} className="rounded-xl border border-line bg-surface p-3">
+          <summary className="cursor-pointer text-sm font-bold text-ink">
+            {EVENT_TYPE_LABELS[type]} <span className="font-normal text-muted">· задач: {(byType.get(type) ?? []).length}</span>
+          </summary>
+          {TEMPLATE_NOTES[type] && <p className="mt-2 text-xs text-gold">{TEMPLATE_NOTES[type]}</p>}
+          <div className="mt-2 space-y-2">
             {(byType.get(type as EventType) ?? []).map((t) => (
               <TemplateRow key={t.id} template={t} />
             ))}
@@ -37,7 +48,7 @@ export function TemplatesTab({ templates }: { templates: TaskTemplate[] }) {
             <summary className="cursor-pointer text-xs font-bold text-ink">Добавить задачу в шаблон</summary>
             <TemplateForm action={createTaskTemplateAction} eventType={type as EventType} />
           </details>
-        </section>
+        </details>
       ))}
     </div>
   );
@@ -49,7 +60,7 @@ function TemplateRow({ template }: { template: TaskTemplate }) {
       <summary className="cursor-pointer text-sm text-ink">
         [{TASK_GROUP_LABELS[template.group]}] {template.title}
         <span className="ml-2 text-xs text-muted">
-          {template.department ? DEPARTMENT_LABELS[template.department] : "без отдела"} ·{" "}
+          {template.department ? DEPARTMENT_LABELS[template.department] : "все роли"} ·{" "}
           {template.triggerType === "DATE_OFFSET"
             ? `${template.offsetDays} дн. от даты`
             : `${TASK_TRIGGER_EVENT_LABELS[template.triggerEvent!]} +${template.offsetDays ?? 0} дн.`}
@@ -84,8 +95,15 @@ function TemplateForm({
         placeholder="Название задачи"
         className="col-span-2 rounded border border-line bg-surface px-2 py-1 sm:col-span-3"
       />
+      <textarea
+        name="description"
+        defaultValue={template?.description ?? ""}
+        rows={3}
+        placeholder="Как сделать (необязательно, поддерживается markdown)"
+        className="col-span-2 rounded border border-line bg-surface px-2 py-1 sm:col-span-3"
+      />
       <select name="department" defaultValue={template?.department ?? ""} className="rounded border border-line bg-surface px-2 py-1">
-        <option value="">Без отдела</option>
+        <option value="">Любая роль</option>
         {Object.entries(DEPARTMENT_LABELS).map(([k, v]) => (
           <option key={k} value={k}>
             {v}

@@ -43,7 +43,8 @@ export function composeDigest(input: DigestInput): string | null {
 /** Раздел 8, п. 1: ежедневный дайджест в 09:00 МСК. Молчим, если сказать нечего. */
 export async function runDigest(now: Date = new Date()): Promise<Delivery[]> {
   const dateKey = calendarDay(now).toISOString().slice(0, 10);
-  const users = await prisma.user.findMany({ where: { botStarted: true, isActive: true } });
+  // Дайджест получают роли, на которые кто-то подписан в Telegram.
+  const users = await prisma.user.findMany({ where: { isActive: true, telegramSubscriptions: { some: {} } } });
   const deliveries: Delivery[] = [];
 
   for (const user of users) {

@@ -23,6 +23,10 @@ export function EventCard({ event }: { event: EventListItem }) {
       </div>
 
       <p className="mt-2 text-sm font-bold text-ink">{event.title}</p>
+      {event.guestName && <p className="text-xs text-muted">{event.guestName}</p>}
+      {event.intensiveBadge && (
+        <span className="mt-1 inline-block rounded bg-danger/15 px-1.5 py-0.5 text-[10px] font-bold text-danger">{event.intensiveBadge}</span>
+      )}
 
       <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted">
         <CalendarIcon className="h-3.5 w-3.5" />
@@ -49,7 +53,7 @@ export function EventCard({ event }: { event: EventListItem }) {
 
       <div className="mt-3 flex items-center gap-2 border-t border-line pt-2.5">
         <Avatar name={event.leadName ?? "?"} size={22} />
-        <span className="text-xs text-muted">{event.leadName ? `Лид: ${event.leadName}` : "Лид не назначен"}</span>
+        <span className="text-xs text-muted">{event.leadName ?? "Ведущий не назначен"}</span>
       </div>
     </Link>
   );

@@ -3,17 +3,21 @@ import { redirect } from "next/navigation";
 import clsx from "clsx";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { isAdmin } from "@/lib/permissions";
-import { rolesWithDefaultPassword } from "@/lib/role-passwords";
-import { getAllTaskTemplates, getAllUsersWithDepartments } from "@/lib/queries/settings";
-import { PeopleTab } from "@/components/settings/people-tab";
-import { TemplatesTab } from "@/components/settings/templates-tab";
+import { userCan } from "@/lib/permissions";
+import { RIGHT_ERRORS } from "@/lib/roles";
+import { departmentsPasswordEnabled, isAdminPasswordSet } from "@/lib/passwords";
+import { getChatTags } from "@/lib/role-accounts";
+import { getAllTaskTemplates, getRoleSubscriptionCounts } from "@/lib/queries/settings";
+import { RolesTab } from "@/components/settings/roles-tab";
 import { AccessTab } from "@/components/settings/access-tab";
+import { TemplatesTab } from "@/components/settings/templates-tab";
+import { ServiceTab } from "@/components/settings/service-tab";
 
 const TABS = [
-  { key: "people", label: "Люди" },
-  { key: "access", label: "Доступ и запуск" },
-  { key: "templates", label: "Шаблоны задач" }
+  { key: "roles", label: "Роли" },
+  { key: "access", label: "Доступ" },
+  { key: "templates", label: "Шаблоны" },
+  { key: "service", label: "Обслуживание" }
 ] as const;
 
 export default async function SettingsPage({
@@ -23,22 +27,20 @@ export default async function SettingsPage({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/settings");
-  if (!isAdmin(user)) {
-    return (
-      <div className="rounded-xl border border-line bg-surface p-6 text-sm text-muted">
-        Настройки доступны только руководителю клуба.
-      </div>
-    );
+  if (!userCan(user, "SETTINGS")) {
+    return <div className="rounded-xl border border-line bg-surface p-6 text-sm text-muted">{RIGHT_ERRORS.SETTINGS}</div>;
   }
 
-  const tab = TABS.find((t) => t.key === searchParams.tab)?.key ?? "people";
+  const tab = TABS.find((t) => t.key === searchParams.tab)?.key ?? "roles";
 
   return (
     <div>
       <h1 className="mb-4 text-2xl font-bold text-ink">Настройки</h1>
 
       {searchParams.error && (
-        <p className="mb-4 rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm text-danger">{searchParams.error}</p>
+        <p role="alert" className="mb-4 rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
+          {searchParams.error}
+        </p>
       )}
       {searchParams.notice && (
         <p className="mb-4 rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-success">{searchParams.notice}</p>
@@ -59,18 +61,12 @@ export default async function SettingsPage({
         ))}
       </div>
 
-      {tab === "people" && <PeopleTab users={await getAllUsersWithDepartments()} currentUserId={user.id} />}
-      {tab === "templates" && <TemplatesTab templates={await getAllTaskTemplates()} />}
+      {tab === "roles" && <RolesTab tags={await getChatTags()} subscriptions={await getRoleSubscriptionCounts()} />}
       {tab === "access" && (
-        <AccessTab
-          defaultRoles={await rolesWithDefaultPassword()}
-          demoCount={
-            (await prisma.user.count({ where: { isDemo: true } })) +
-            (await prisma.event.count({ where: { isDemo: true } })) +
-            (await prisma.idea.count({ where: { isDemo: true } }))
-          }
-        />
+        <AccessTab adminPasswordSet={await isAdminPasswordSet()} departmentsPassword={await departmentsPasswordEnabled()} />
       )}
+      {tab === "templates" && <TemplatesTab templates={await getAllTaskTemplates()} />}
+      {tab === "service" && <ServiceTab eventsCount={await prisma.event.count()} />}
     </div>
   );
 }

@@ -9,7 +9,7 @@ const STUCK_STAGES: EventStage[] = ["APPROVAL", "PLANNING", "IN_PROGRESS"];
 /** Раздел 8, п. 3: «застряло» — 7 дней без движения → лиду, 14 дней → администраторам. */
 export async function runStuckCheck(now: Date = new Date()): Promise<Delivery[]> {
   const events = await prisma.event.findMany({ where: { stage: { in: STUCK_STAGES } } });
-  const admins = await prisma.user.findMany({ where: { role: "ADMIN", isActive: true } });
+  const admins = await prisma.user.findMany({ where: { role: "ADMIN", isActive: true, isRoleAccount: true } });
   const deliveries: Delivery[] = [];
 
   for (const event of events) {

@@ -15,22 +15,33 @@ import type {
 } from "@prisma/client";
 
 export const EVENT_TYPE_LABELS: Record<EventType, string> = {
-  LECTURE: "Лекция",
+  LECTURE: "Лекция / питч-сессия",
+  CASE: "Бизнес-кейс",
+  INTENSIVE: "Интенсив",
+  ACCELERATOR: "Акселератор",
   GAME: "Игра",
-  CASE: "Кейс-чемпионат",
   CONFERENCE: "Конференция",
-  SERIES: "Серия",
-  INTENSIVE: "Интенсив"
+  SERIES: "Серия"
 };
 
+/** Направления в форме создания (регламент v3). Остальные значения остаются в базе для старых записей. */
+export const FORM_EVENT_TYPES: { type: EventType; label: string }[] = [
+  { type: "LECTURE", label: "Лекция / питч-сессия" },
+  { type: "CASE", label: "Бизнес-кейс" },
+  { type: "ACCELERATOR", label: "Акселератор (4–6 часов, жюри и команды)" },
+  { type: "INTENSIVE", label: "Интенсив" }
+];
+
+export const INTENSIVE_CYCLES = ["Продажи", "Маркетинг", "Привлечение клиентов"];
+
 export const EVENT_STAGE_LABELS: Record<EventStage, string> = {
-  IDEA: "Идея",
-  APPROVAL: "На согласовании",
-  PLANNING: "Планирование",
+  IDEA: "Черновик",
+  APPROVAL: "Подбор дат",
+  PLANNING: "Дата у спикера",
   IN_PROGRESS: "Подготовка",
   DONE: "Проведено",
   CLOSED: "Закрыто",
-  REJECTED: "Отклонено"
+  REJECTED: "Отменено"
 };
 
 export const BOARD_STAGES: EventStage[] = ["IDEA", "APPROVAL", "PLANNING", "IN_PROGRESS", "DONE", "CLOSED"];
@@ -42,7 +53,8 @@ export const EVENT_TYPE_PILL_CLASSES: Record<EventType, string> = {
   CASE: "bg-gold/20 text-gold",
   CONFERENCE: "bg-[#B98CFF]/20 text-[#B98CFF]",
   SERIES: "bg-[#3FC1C9]/20 text-[#3FC1C9]",
-  INTENSIVE: "bg-danger/20 text-danger"
+  INTENSIVE: "bg-danger/20 text-danger",
+  ACCELERATOR: "bg-success/20 text-success"
 };
 
 export const EVENT_STAGE_DOT_CLASSES: Record<EventStage, string> = {
@@ -56,19 +68,18 @@ export const EVENT_STAGE_DOT_CLASSES: Record<EventStage, string> = {
 };
 
 export const DEPARTMENT_LABELS: Record<DepartmentCode, string> = {
-  GUESTS: "Гости",
-  SECURITY: "ЦБ",
-  PR: "Пиар",
-  CONTENT: "Контент",
-  STAGE: "Площадка",
-  INTENSIVES: "Интенсивы"
+  BOARD: "Администратор клуба",
+  GUESTS: "Внешний отдел",
+  PR: "Пиар и пропуска",
+  STAGE: "Event-отдел",
+  CONTENT: "Контент"
 };
 
 export const ROLE_LABELS: Record<Role, string> = {
   READER: "Гость",
   MEMBER: "Участник",
-  LEAD: "Руководитель отдела",
-  ADMIN: "Руководитель клуба"
+  LEAD: "Отдел",
+  ADMIN: "Администратор клуба"
 };
 
 export const GUEST_STATUS_LABELS: Record<GuestStatus, string> = {
@@ -111,15 +122,15 @@ export const TASK_TRIGGER_TYPE_LABELS: Record<TaskTriggerType, string> = {
 };
 
 export const TASK_AUTO_COMPLETE_LABELS: Record<TaskAutoComplete, string> = {
-  DATE_FIXED: "в момент фиксации даты (план развёрнут — значит, дата есть)",
+  DATE_FIXED: "в момент фиксации даты",
   PHOTO_REPORT_ATTACHED: "когда прикреплён фотоотчёт",
   RETRO_SAVED: "когда заполнено ретро и посещаемость"
 };
 
 export const TASK_TRIGGER_EVENT_LABELS: Record<TaskTriggerEvent, string> = {
   DATE_FIXED: "Дата зафиксирована",
-  SECURITY_SUBMITTED: "Заявка в ЦБ подана",
-  SECURITY_ANSWERED: "ЦБ ответил",
+  SECURITY_SUBMITTED: "Заявка подана",
+  SECURITY_ANSWERED: "Пропуск готов",
   REGISTRATION_CLOSED: "Регистрация закрыта",
   EVENT_DONE: "Мероприятие проведено"
 };

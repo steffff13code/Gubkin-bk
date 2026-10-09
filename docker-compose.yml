@@ -26,8 +26,6 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/gubkin_bc?schema=public
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
-      MEMBER_PASSWORD: ${MEMBER_PASSWORD:-}
-      LEAD_PASSWORD: ${LEAD_PASSWORD:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       # Для локального просмотра можно не создавать .env — секрет по умолчанию.
       # На реальном сервере обязательно задайте свой SESSION_SECRET в .env.

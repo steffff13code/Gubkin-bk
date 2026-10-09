@@ -1,4 +1,4 @@
-import type { DepartmentCode, EventType } from "@prisma/client";
+import type { DepartmentCode, EventType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { isOverdue } from "@/lib/time";
 
@@ -8,6 +8,8 @@ export type EventFilters = {
   leadId?: string;
   mine?: boolean;
   currentUserId?: string | null;
+  /** Отдел роли: «Мои» — мероприятия, где у отдела есть задачи. */
+  mineDepartment?: DepartmentCode | null;
   includeRejected?: boolean;
   q?: string;
 };
@@ -24,13 +26,14 @@ export type EventListItem = {
   leadName: string | null;
   leadId: string | null;
   guestName: string | null;
+  intensiveBadge: string | null;
   tasksDone: number;
   tasksTotal: number;
   isOverdue: boolean;
 };
 
 export async function getEventsList(filters: EventFilters): Promise<EventListItem[]> {
-  const where: NonNullable<Parameters<typeof prisma.event.findMany>[0]>["where"] = {};
+  const where: Prisma.EventWhereInput = {};
 
   if (filters.type) where.type = filters.type;
   if (filters.leadId) where.leadId = filters.leadId;
@@ -41,6 +44,7 @@ export async function getEventsList(filters: EventFilters): Promise<EventListIte
   if (filters.mine && filters.currentUserId) {
     where.OR = [
       { leadId: filters.currentUserId },
+      ...(filters.mineDepartment ? [{ tasks: { some: { department: filters.mineDepartment } } }] : []),
       { tasks: { some: { assigneeId: filters.currentUserId } } },
       { tasks: { some: { secondAssigneeId: filters.currentUserId } } },
       { members: { some: { userId: filters.currentUserId } } }
@@ -74,18 +78,15 @@ export async function getEventsList(filters: EventFilters): Promise<EventListIte
       leadName: e.lead ? e.lead.firstName : null,
       leadId: e.leadId,
       guestName: e.guestName,
+      intensiveBadge:
+        e.type === "INTENSIVE" && (e.intensiveCycle || e.intensiveMeeting)
+          ? [e.intensiveCycle, e.intensiveMeeting ? `встреча ${e.intensiveMeeting}${e.intensiveTotal ? ` из ${e.intensiveTotal}` : ""}` : null]
+              .filter(Boolean)
+              .join(" · ")
+          : null,
       tasksDone,
       tasksTotal,
       isOverdue: overdue
     };
   });
-}
-
-export async function getLeadOptions() {
-  const users = await prisma.user.findMany({
-    where: { role: { in: ["LEAD", "ADMIN"] }, isActive: true },
-    orderBy: { firstName: "asc" },
-    select: { id: true, firstName: true, lastName: true }
-  });
-  return users;
 }

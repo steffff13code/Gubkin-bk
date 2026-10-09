@@ -1,7 +1,8 @@
 import Link from "next/link";
 import clsx from "clsx";
 import { getCurrentUser } from "@/lib/auth";
-import { isLeadOrAdmin } from "@/lib/permissions";
+import { redirect } from "next/navigation";
+import { userCan } from "@/lib/permissions";
 import { getEventsList } from "@/lib/queries/events";
 import { getTodayEvents } from "@/lib/queries/my-day";
 import { BoardView } from "@/components/events/board-view";
@@ -10,12 +11,14 @@ import { PlusIcon, SearchIcon } from "@/components/icons";
 
 export default async function EventsPage({ searchParams }: { searchParams: Record<string, string | undefined> }) {
   const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const canCreate = userCan(user, "CREATE_EVENT");
   const view = searchParams.view === "list" ? "list" : "board";
-  const mine = !!user && searchParams.mine === "1";
+  const mine = searchParams.mine === "1";
   const q = searchParams.q?.trim() || "";
 
   const [events, today] = await Promise.all([
-    getEventsList({ mine, currentUserId: user?.id ?? null, q }),
+    getEventsList({ mine, currentUserId: user.id, mineDepartment: user.roleKey, q }),
     getTodayEvents()
   ]);
 
@@ -50,7 +53,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Recor
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-ink">Мероприятия</h1>
-        {isLeadOrAdmin(user) && (
+        {canCreate && (
           <Link
             href="/events/new"
             className="flex items-center gap-1.5 rounded-lg bg-gold px-4 py-2 text-sm font-bold text-bg hover:bg-gold/90"
@@ -74,14 +77,12 @@ export default async function EventsPage({ searchParams }: { searchParams: Recor
             className="w-full rounded-lg border border-line bg-surface py-2 pl-9 pr-3 text-sm text-ink placeholder:text-muted"
           />
         </form>
-        {user && (
-          <Segmented
-            items={[
-              { label: "Все", href: href({ mine: null }), active: !mine },
-              { label: "Мои", href: href({ mine: "1" }), active: mine }
-            ]}
-          />
-        )}
+        <Segmented
+          items={[
+            { label: "Все", href: href({ mine: null }), active: !mine },
+            { label: "Мои", href: href({ mine: "1" }), active: mine }
+          ]}
+        />
         <Segmented
           items={[
             { label: "Доска", href: href({ view: null }), active: view === "board" },
@@ -99,7 +100,25 @@ export default async function EventsPage({ searchParams }: { searchParams: Recor
         </p>
       )}
 
-      {view === "list" ? <ListView events={events} /> : <BoardView events={events} canCreate={isLeadOrAdmin(user)} />}
+      {events.length === 0 && !q && !mine ? (
+        <div className="rounded-xl border border-line bg-surface px-4 py-12 text-center">
+          <p className="text-lg font-bold text-ink">Мероприятий пока нет</p>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-muted">
+            {canCreate
+              ? "Спикер одобрил окно дат? Заведите карточку — Администратор и Пиар получат уведомление и подберут варианты."
+              : "Карточку мероприятия заводит Внешний отдел, когда спикер одобрит окно дат."}
+          </p>
+          {canCreate && (
+            <Link href="/events/new" className="mt-4 inline-block rounded-lg bg-gold px-5 py-2.5 text-sm font-bold text-bg hover:bg-gold/90">
+              Новое мероприятие
+            </Link>
+          )}
+        </div>
+      ) : view === "list" ? (
+        <ListView events={events} />
+      ) : (
+        <BoardView events={events} canCreate={canCreate} />
+      )}
     </div>
   );
 }

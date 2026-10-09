@@ -6,11 +6,11 @@ import { EventCard } from "@/components/events/event-card";
 
 // Колонки доски — путь мероприятия. Закрытые (архив) — во вкладке «Список».
 const COLUMNS: { stage: EventStage; hint: string }[] = [
-  { stage: "IDEA", hint: "Черновик: заполнить и отправить" },
-  { stage: "APPROVAL", hint: "Ждёт руководителя клуба" },
-  { stage: "PLANNING", hint: "Нужно окно дат с гостем" },
-  { stage: "IN_PROGRESS", hint: "Отделы работают по плану" },
-  { stage: "DONE", hint: "Нужны итоги" }
+  { stage: "IDEA", hint: "Внешний отдел дописывает карточку" },
+  { stage: "APPROVAL", hint: "Администратор и Пиар вносят варианты" },
+  { stage: "PLANNING", hint: "Внешний отдел согласует со спикером" },
+  { stage: "IN_PROGRESS", hint: "Пропуск, план, анонсы, съёмки" },
+  { stage: "DONE", hint: "Отчёты и итоги" }
 ];
 
 export function BoardView({ events, canCreate = false }: { events: EventListItem[]; canCreate?: boolean }) {

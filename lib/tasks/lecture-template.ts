@@ -1,10 +1,26 @@
-import type { DepartmentCode, TaskAutoComplete, TaskGroup, TaskTriggerEvent, TaskTriggerType } from "@prisma/client";
+import type {
+  DepartmentCode,
+  EventType,
+  TaskAutoComplete,
+  TaskGroup,
+  TaskTriggerEvent,
+  TaskTriggerType
+} from "@prisma/client";
 
-// Шаблон «Лекция с гостем» по регламенту мероприятий клуба и чек-листам отделов.
-// Сроки — дни относительно даты мероприятия (для EVENT — дни после события).
-// Задачи дня мероприятия несут тайминг: минуты от начала и подпись шага.
-// Версия шаблона: при изменении увеличьте LECTURE_TEMPLATE_VERSION — сид заменит шаблон в базе.
-export const LECTURE_TEMPLATE_VERSION = "2";
+// Шаблон задач по регламенту v3 (общий регламент руководства клуба).
+// D — дата мероприятия. «Пропуск готов» — триггер SECURITY_ANSWERED (зажигает закрытие задачи
+// «Оформить пропуск на спикера»). Сроки — дни относительно D (для EVENT — дни после события).
+// При изменении увеличьте LECTURE_TEMPLATE_VERSION — сид заменит шаблоны в базе.
+export const LECTURE_TEMPLATE_VERSION = "3";
+
+/** Направления, для которых сидится шаблон v3. */
+export const TEMPLATE_TYPES: EventType[] = ["LECTURE", "CASE", "INTENSIVE", "ACCELERATOR"];
+
+/** Пометки к шаблонам направлений — показываются в настройках и в регламенте. */
+export const TEMPLATE_NOTES: Partial<Record<EventType, string>> = {
+  CASE: "Базовый шаблон, руководство уточнит.",
+  ACCELERATOR: "Базовый шаблон, руководство уточнит."
+};
 
 export type LectureTemplateRow = {
   title: string;
@@ -20,31 +36,34 @@ export type LectureTemplateRow = {
   sortOrder: number;
   dayOffsetMinutes: number | null;
   dayTimeLabel: string | null;
+  description: string | null;
 };
 
 export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
-  // --- До мероприятия: окно дат → ЦБ → дата → аудитория, пиар, съёмка
+  // --- До мероприятия: дата → пропуск → план проведения и съёмки → анонсы
   {
-    title: "Выбрать гостя из базы и написать ему",
-    department: "GUESTS",
-    triggerType: "DATE_OFFSET",
-    offsetDays: -45,
-    triggerEvent: null,
+    title: "Оформить пропуск на спикера",
+    department: "PR",
+    triggerType: "EVENT",
+    offsetDays: 2,
+    triggerEvent: "DATE_FIXED",
     required: true,
     needsTwoAssignees: false,
-    firesTrigger: null,
+    firesTrigger: "SECURITY_ANSWERED",
     autoComplete: null,
     group: "BEFORE",
     sortOrder: 10,
     dayOffsetMinutes: null,
-    dayTimeLabel: null
+    dayTimeLabel: null,
+    description:
+      "Данные спикера — в карточке мероприятия; чего не хватает, запроси у Внешнего отдела. Сделал — закрой задачу. Если отказали — кнопка «Пропуск не одобрен» в карточке. Закрытие задачи означает «Пропуск готов»: Event-отдел и Контент начинают подготовку."
   },
   {
-    title: "Согласовать с гостем окно из 10 дней, предупредить про проверку ЦБ",
-    department: "GUESTS",
-    triggerType: "DATE_OFFSET",
-    offsetDays: -45,
-    triggerEvent: null,
+    title: "Забронировать аудиторию (служебка)",
+    department: "PR",
+    triggerType: "EVENT",
+    offsetDays: 2,
+    triggerEvent: "DATE_FIXED",
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
@@ -52,14 +71,16 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     group: "BEFORE",
     sortOrder: 20,
     dayOffsetMinutes: null,
-    dayTimeLabel: null
+    dayTimeLabel: null,
+    description:
+      "Аудитория — из выбранного варианта дат (в карточке мероприятия).\n\n_Срок по умолчанию — руководство может поправить в «Настройки → Шаблоны»._"
   },
   {
-    title: "Завести карточку гостя в чате: кто, тема, окно дат",
-    department: "GUESTS",
-    triggerType: "DATE_OFFSET",
-    offsetDays: -45,
-    triggerEvent: null,
+    title: "План проведения",
+    department: "STAGE",
+    triggerType: "EVENT",
+    offsetDays: 3,
+    triggerEvent: "SECURITY_ANSWERED",
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
@@ -67,59 +88,66 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     group: "BEFORE",
     sortOrder: 30,
     dayOffsetMinutes: null,
-    dayTimeLabel: null
+    dayTimeLabel: null,
+    description:
+      "Кто за что отвечает на площадке, кто берёт ноутбук, кто общается с участниками и зовёт в актив.\n\n_Срок по умолчанию — руководство может поправить в «Настройки → Шаблоны»._"
   },
   {
-    title: "Подать заявку в ЦБ на проверку гостя",
-    department: "SECURITY",
-    triggerType: "DATE_OFFSET",
-    offsetDays: -30,
-    triggerEvent: null,
+    title: "Подготовить съёмки: рилс-анонс и рилс-интервью",
+    department: "CONTENT",
+    triggerType: "EVENT",
+    offsetDays: 2,
+    triggerEvent: "SECURITY_ANSWERED",
     required: true,
-    needsTwoAssignees: true,
-    firesTrigger: "SECURITY_SUBMITTED",
+    needsTwoAssignees: false,
+    firesTrigger: null,
     autoComplete: null,
     group: "BEFORE",
     sortOrder: 40,
     dayOffsetMinutes: null,
-    dayTimeLabel: null
+    dayTimeLabel: null,
+    description:
+      "Сценарий, кто снимает, что нужно от спикера.\n\n_Срок по умолчанию — руководство может поправить в «Настройки → Шаблоны»._"
   },
   {
-    title: "Получить ответ ЦБ и в тот же день написать в чат",
-    department: "SECURITY",
-    triggerType: "EVENT",
-    offsetDays: 7,
-    triggerEvent: "SECURITY_SUBMITTED",
-    required: true,
-    needsTwoAssignees: true,
-    firesTrigger: "SECURITY_ANSWERED",
-    autoComplete: null,
-    group: "BEFORE",
-    sortOrder: 50,
-    dayOffsetMinutes: null,
-    dayTimeLabel: null
-  },
-  {
-    title: "Зафиксировать дату и время после ответа ЦБ, написать в чат",
-    department: "GUESTS",
+    title: "Пост-анонс с регистрацией",
+    department: "PR",
     triggerType: "DATE_OFFSET",
-    offsetDays: -21,
+    offsetDays: -7,
     triggerEvent: null,
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
-    autoComplete: "DATE_FIXED",
+    autoComplete: null,
+    group: "BEFORE",
+    sortOrder: 50,
+    dayOffsetMinutes: null,
+    dayTimeLabel: null,
+    description:
+      "Опубликовать лично в ВК и Telegram; попросить ответственного за Max продублировать; съёмочный материал — в сторис тех же сетей."
+  },
+  {
+    title: "Рилс-анонс готов: передать Пиару и выложить в Инстаграм и ТикТок",
+    department: "CONTENT",
+    triggerType: "DATE_OFFSET",
+    offsetDays: -3,
+    triggerEvent: null,
+    required: true,
+    needsTwoAssignees: false,
+    firesTrigger: null,
+    autoComplete: null,
     group: "BEFORE",
     sortOrder: 60,
     dayOffsetMinutes: null,
-    dayTimeLabel: null
+    dayTimeLabel: null,
+    description: "Выход в Инстаграме и ТикТоке — одновременно. Если Пиар забыл про сторис — напомнить ему."
   },
   {
-    title: "Выбрать аудиторию вместе в чате — из списка 15–20, не единолично",
+    title: "Второй анонс с рилсом — поторопить с регистрацией",
     department: "PR",
-    triggerType: "EVENT",
-    offsetDays: 0,
-    triggerEvent: "DATE_FIXED",
+    triggerType: "DATE_OFFSET",
+    offsetDays: -3,
+    triggerEvent: null,
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
@@ -127,14 +155,16 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     group: "BEFORE",
     sortOrder: 70,
     dayOffsetMinutes: null,
-    dayTimeLabel: null
+    dayTimeLabel: null,
+    description:
+      "Прикрепить рилс-анонс от Контента. Каналы: лично в ВК и Telegram; попросить ответственного за Max продублировать; съёмочный материал — в сторис тех же сетей."
   },
   {
-    title: "Подать служебку на аудиторию",
-    department: "PR",
-    triggerType: "EVENT",
-    offsetDays: 0,
-    triggerEvent: "DATE_FIXED",
+    title: "Проверить число регистраций",
+    department: "BOARD",
+    triggerType: "DATE_OFFSET",
+    offsetDays: -3,
+    triggerEvent: null,
     required: true,
     needsTwoAssignees: false,
     firesTrigger: null,
@@ -142,221 +172,28 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     group: "BEFORE",
     sortOrder: 80,
     dayOffsetMinutes: null,
-    dayTimeLabel: null
+    dayTimeLabel: null,
+    description: "Если мало — попросить помощи у преподавателей МЭБ и усилить набор."
   },
   {
-    title: "План анонсов по мероприятию",
-    department: "PR",
-    triggerType: "EVENT",
-    offsetDays: 0,
-    triggerEvent: "DATE_FIXED",
-    required: true,
+    title: "Позвать людей вживую",
+    department: null,
+    triggerType: "DATE_OFFSET",
+    offsetDays: -3,
+    triggerEvent: null,
+    required: false,
     needsTwoAssignees: false,
     firesTrigger: null,
     autoComplete: null,
     group: "BEFORE",
     sortOrder: 90,
     dayOffsetMinutes: null,
-    dayTimeLabel: null
+    dayTimeLabel: null,
+    description: "Реклама даёт часть зала, остальное — личные приглашения."
   },
   {
-    title: "План съёмок по мероприятию",
-    department: "CONTENT",
-    triggerType: "EVENT",
-    offsetDays: 0,
-    triggerEvent: "DATE_FIXED",
-    required: true,
-    needsTwoAssignees: false,
-    firesTrigger: null,
-    autoComplete: null,
-    group: "BEFORE",
-    sortOrder: 100,
-    dayOffsetMinutes: null,
-    dayTimeLabel: null
-  },
-  {
-    title: "Анонсный ролик после подтверждения гостя",
-    department: "CONTENT",
-    triggerType: "EVENT",
-    offsetDays: 3,
-    triggerEvent: "SECURITY_ANSWERED",
-    required: false,
-    needsTwoAssignees: false,
-    firesTrigger: null,
-    autoComplete: null,
-    group: "BEFORE",
-    sortOrder: 110,
-    dayOffsetMinutes: null,
-    dayTimeLabel: null
-  },
-  {
-    title: "Подтверждение аудитории — в чат",
+    title: "Список внешних участников — на пропуска",
     department: "PR",
-    triggerType: "DATE_OFFSET",
-    offsetDays: -17,
-    triggerEvent: null,
-    required: true,
-    needsTwoAssignees: false,
-    firesTrigger: null,
-    autoComplete: null,
-    group: "BEFORE",
-    sortOrder: 120,
-    dayOffsetMinutes: null,
-    dayTimeLabel: null
-  },
-  {
-    title: "Пост №1: открыть регистрацию для внешних гостей",
-    department: "PR",
-    triggerType: "DATE_OFFSET",
-    offsetDays: -14,
-    triggerEvent: null,
-    required: true,
-    needsTwoAssignees: false,
-    firesTrigger: null,
-    autoComplete: null,
-    group: "BEFORE",
-    sortOrder: 130,
-    dayOffsetMinutes: null,
-    dayTimeLabel: null
-  },
-  {
-    title: "Афиша: сделать и собрать правки в отделе",
-    department: "PR",
-    triggerType: "DATE_OFFSET",
-    offsetDays: -12,
-    triggerEvent: null,
-    required: true,
-    needsTwoAssignees: false,
-    firesTrigger: null,
-    autoComplete: null,
-    group: "BEFORE",
-    sortOrder: 140,
-    dayOffsetMinutes: null,
-    dayTimeLabel: null
-  },
-  {
-    title: "Согласовать афишу и пост с гостем, спросить про питч-сессию (7 минут)",
-    department: "GUESTS",
-    triggerType: "DATE_OFFSET",
-    offsetDays: -10,
-    triggerEvent: null,
-    required: true,
-    needsTwoAssignees: false,
-    firesTrigger: null,
-    autoComplete: null,
-    group: "BEFORE",
-    sortOrder: 150,
-    dayOffsetMinutes: null,
-    dayTimeLabel: null
-  },
-  {
-    title: "Пост №2: афиша + «регистрация закрывается через день»",
-    department: "PR",
-    triggerType: "DATE_OFFSET",
-    offsetDays: -7,
-    triggerEvent: null,
-    required: true,
-    needsTwoAssignees: false,
-    firesTrigger: null,
-    autoComplete: null,
-    group: "BEFORE",
-    sortOrder: 160,
-    dayOffsetMinutes: null,
-    dayTimeLabel: null
-  },
-  {
-    title: "Репосты: старостат, СНО, кейс-клуб, другие вузы",
-    department: "PR",
-    triggerType: "DATE_OFFSET",
-    offsetDays: -7,
-    triggerEvent: null,
-    required: false,
-    needsTwoAssignees: false,
-    firesTrigger: null,
-    autoComplete: null,
-    group: "BEFORE",
-    sortOrder: 170,
-    dayOffsetMinutes: null,
-    dayTimeLabel: null
-  },
-  {
-    title: "Закрыть регистрацию",
-    department: "PR",
-    triggerType: "DATE_OFFSET",
-    offsetDays: -6,
-    triggerEvent: null,
-    required: true,
-    needsTwoAssignees: false,
-    firesTrigger: "REGISTRATION_CLOSED",
-    autoComplete: null,
-    group: "BEFORE",
-    sortOrder: 180,
-    dayOffsetMinutes: null,
-    dayTimeLabel: null
-  },
-  {
-    title: "Список внешних гостей — в ЦБ сразу после закрытия регистрации",
-    department: "SECURITY",
-    triggerType: "EVENT",
-    offsetDays: 0,
-    triggerEvent: "REGISTRATION_CLOSED",
-    required: true,
-    needsTwoAssignees: true,
-    firesTrigger: null,
-    autoComplete: null,
-    group: "BEFORE",
-    sortOrder: 190,
-    dayOffsetMinutes: null,
-    dayTimeLabel: null
-  },
-  {
-    title: "Пост №3 (последний)",
-    department: "PR",
-    triggerType: "DATE_OFFSET",
-    offsetDays: -3,
-    triggerEvent: null,
-    required: true,
-    needsTwoAssignees: false,
-    firesTrigger: null,
-    autoComplete: null,
-    group: "BEFORE",
-    sortOrder: 200,
-    dayOffsetMinutes: null,
-    dayTimeLabel: null
-  },
-  {
-    title: "Лично забрать пропуска в ЦБ",
-    department: "SECURITY",
-    triggerType: "DATE_OFFSET",
-    offsetDays: -3,
-    triggerEvent: null,
-    required: true,
-    needsTwoAssignees: true,
-    firesTrigger: null,
-    autoComplete: null,
-    group: "BEFORE",
-    sortOrder: 210,
-    dayOffsetMinutes: null,
-    dayTimeLabel: null
-  },
-  {
-    title: "Позвать людей вживую — каждый зовёт своих",
-    department: null,
-    triggerType: "DATE_OFFSET",
-    offsetDays: -3,
-    triggerEvent: null,
-    required: false,
-    needsTwoAssignees: false,
-    firesTrigger: null,
-    autoComplete: null,
-    group: "BEFORE",
-    sortOrder: 220,
-    dayOffsetMinutes: null,
-    dayTimeLabel: null
-  },
-  {
-    title: "Стоп-лист: все обязательные задачи закрыты",
-    department: null,
     triggerType: "DATE_OFFSET",
     offsetDays: -2,
     triggerEvent: null,
@@ -365,9 +202,27 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     firesTrigger: null,
     autoComplete: null,
     group: "BEFORE",
-    sortOrder: 230,
+    sortOrder: 100,
     dayOffsetMinutes: null,
-    dayTimeLabel: null
+    dayTimeLabel: null,
+    description:
+      "Срок уточнить у руководства.\n\n_Срок по умолчанию — руководство может поправить в «Настройки → Шаблоны»._"
+  },
+  {
+    title: "Стоп-лист: все обязательные задачи закрыты",
+    department: "BOARD",
+    triggerType: "DATE_OFFSET",
+    offsetDays: -2,
+    triggerEvent: null,
+    required: true,
+    needsTwoAssignees: false,
+    firesTrigger: null,
+    autoComplete: null,
+    group: "BEFORE",
+    sortOrder: 110,
+    dayOffsetMinutes: null,
+    dayTimeLabel: null,
+    description: "За 2 дня до мероприятия сюда автоматически попадает список незакрытых обязательных задач."
   },
   {
     title: "Забрать оборудование накануне",
@@ -376,15 +231,16 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     offsetDays: -1,
     triggerEvent: null,
     required: true,
-    needsTwoAssignees: true,
+    needsTwoAssignees: false,
     firesTrigger: null,
     autoComplete: null,
     group: "BEFORE",
-    sortOrder: 240,
+    sortOrder: 120,
     dayOffsetMinutes: null,
-    dayTimeLabel: null
+    dayTimeLabel: null,
+    description: null
   },
-  // --- День мероприятия — по сценарию
+  // --- День мероприятия — по таймингу
   {
     title: "Аудитория открыта, проектор и звук работают, презентация загружена",
     department: "STAGE",
@@ -392,13 +248,14 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     offsetDays: 0,
     triggerEvent: null,
     required: true,
-    needsTwoAssignees: true,
+    needsTwoAssignees: false,
     firesTrigger: null,
     autoComplete: null,
     group: "EVENT_DAY",
     sortOrder: 300,
     dayOffsetMinutes: -120,
-    dayTimeLabel: "−2 часа"
+    dayTimeLabel: "−2 часа",
+    description: null
   },
   {
     title: "Два волонтёра на посту охраны со списком",
@@ -407,16 +264,17 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     offsetDays: 0,
     triggerEvent: null,
     required: true,
-    needsTwoAssignees: true,
+    needsTwoAssignees: false,
     firesTrigger: null,
     autoComplete: null,
     group: "EVENT_DAY",
     sortOrder: 310,
     dayOffsetMinutes: -40,
-    dayTimeLabel: "−40 минут"
+    dayTimeLabel: "−40 минут",
+    description: null
   },
   {
-    title: "Встретить гостя — один человек",
+    title: "Встретить спикера — один человек",
     department: "GUESTS",
     triggerType: "DATE_OFFSET",
     offsetDays: 0,
@@ -428,11 +286,12 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     group: "EVENT_DAY",
     sortOrder: 320,
     dayOffsetMinutes: -20,
-    dayTimeLabel: "−20 минут"
+    dayTimeLabel: "−20 минут",
+    description: null
   },
   {
-    title: "Открытие, представление гостя",
-    department: null,
+    title: "Открытие, представление спикера",
+    department: "BOARD",
     triggerType: "DATE_OFFSET",
     offsetDays: 0,
     triggerEvent: null,
@@ -443,7 +302,8 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     group: "EVENT_DAY",
     sortOrder: 330,
     dayOffsetMinutes: 0,
-    dayTimeLabel: "0:00"
+    dayTimeLabel: "0:00",
+    description: null
   },
   {
     title: "Съёмка: зал, спикер, реакция",
@@ -458,7 +318,8 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     group: "EVENT_DAY",
     sortOrder: 340,
     dayOffsetMinutes: 0,
-    dayTimeLabel: "0:00"
+    dayTimeLabel: "0:00",
+    description: null
   },
   {
     title: "Один организатор в конце зала весь тайминг",
@@ -473,11 +334,12 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     group: "EVENT_DAY",
     sortOrder: 350,
     dayOffsetMinutes: 0,
-    dayTimeLabel: "всё мероприятие"
+    dayTimeLabel: "всё мероприятие",
+    description: null
   },
   {
     title: "Вопросы: первые — из заготовленного списка, дальше зал",
-    department: null,
+    department: "BOARD",
     triggerType: "DATE_OFFSET",
     offsetDays: 0,
     triggerEvent: null,
@@ -488,11 +350,12 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     group: "EVENT_DAY",
     sortOrder: 360,
     dayOffsetMinutes: null,
-    dayTimeLabel: "после выступления"
+    dayTimeLabel: "после выступления",
+    description: null
   },
   {
     title: "Питч-сессия 7 минут по таймеру (если согласована)",
-    department: null,
+    department: "BOARD",
     triggerType: "DATE_OFFSET",
     offsetDays: 0,
     triggerEvent: null,
@@ -503,7 +366,8 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     group: "EVENT_DAY",
     sortOrder: 370,
     dayOffsetMinutes: null,
-    dayTimeLabel: "финал"
+    dayTimeLabel: "финал",
+    description: null
   },
   {
     title: "Общее фото при полном зале",
@@ -518,10 +382,27 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     group: "EVENT_DAY",
     sortOrder: 380,
     dayOffsetMinutes: null,
-    dayTimeLabel: "финал"
+    dayTimeLabel: "финал",
+    description: null
   },
   {
-    title: "Гостя уводят — сначала фото, потом уводим",
+    title: "Общаться с участниками и звать в актив",
+    department: "STAGE",
+    triggerType: "DATE_OFFSET",
+    offsetDays: 0,
+    triggerEvent: null,
+    required: true,
+    needsTwoAssignees: false,
+    firesTrigger: null,
+    autoComplete: null,
+    group: "EVENT_DAY",
+    sortOrder: 385,
+    dayOffsetMinutes: null,
+    dayTimeLabel: "финал",
+    description: null
+  },
+  {
+    title: "Спикера уводят — сначала фото, потом уводим",
     department: "GUESTS",
     triggerType: "DATE_OFFSET",
     offsetDays: 0,
@@ -533,10 +414,11 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     group: "EVENT_DAY",
     sortOrder: 390,
     dayOffsetMinutes: null,
-    dayTimeLabel: "сразу после"
+    dayTimeLabel: "сразу после",
+    description: null
   },
   {
-    title: "Интервью с гостем",
+    title: "Рилс-интервью со спикером",
     department: "CONTENT",
     triggerType: "DATE_OFFSET",
     offsetDays: 0,
@@ -548,7 +430,8 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     group: "EVENT_DAY",
     sortOrder: 400,
     dayOffsetMinutes: null,
-    dayTimeLabel: "сразу после"
+    dayTimeLabel: "сразу после",
+    description: null
   },
   {
     title: "Собрать и вернуть технику",
@@ -557,20 +440,21 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     offsetDays: 0,
     triggerEvent: null,
     required: true,
-    needsTwoAssignees: true,
+    needsTwoAssignees: false,
     firesTrigger: null,
     autoComplete: null,
     group: "EVENT_DAY",
     sortOrder: 410,
     dayOffsetMinutes: null,
-    dayTimeLabel: "после"
+    dayTimeLabel: "после",
+    description: null
   },
-  // --- После: через сутки монтаж, через 3 дня фото, пост-отчёт, спасибо гостю
+  // --- После «Проведено»: рилсы, фото, пост-отчёт, спасибо спикеру, итоги
   {
-    title: "Материал на монтаж — в течение суток",
+    title: "Рилс-отчёт и рилс-интервью — Пиару, выложить в Инстаграм и ТикТок",
     department: "CONTENT",
     triggerType: "EVENT",
-    offsetDays: 1,
+    offsetDays: 2,
     triggerEvent: "EVENT_DONE",
     required: true,
     needsTwoAssignees: false,
@@ -579,10 +463,11 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     group: "AFTER",
     sortOrder: 500,
     dayOffsetMinutes: null,
-    dayTimeLabel: null
+    dayTimeLabel: null,
+    description: "Выход в Инстаграме и ТикТоке — одновременно."
   },
   {
-    title: "Фото и видео: ссылка на фотоотчёт в карточке",
+    title: "Фотоотчёт: ссылка в карточке",
     department: "CONTENT",
     triggerType: "EVENT",
     offsetDays: 3,
@@ -594,10 +479,11 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     group: "AFTER",
     sortOrder: 510,
     dayOffsetMinutes: null,
-    dayTimeLabel: null
+    dayTimeLabel: null,
+    description: "Задача закроется сама, когда в блоке «Итоги» появится ссылка на фотоотчёт."
   },
   {
-    title: "Пост-отчёт",
+    title: "Пост-отчёт с рилсом",
     department: "PR",
     triggerType: "EVENT",
     offsetDays: 3,
@@ -609,10 +495,12 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     group: "AFTER",
     sortOrder: 520,
     dayOffsetMinutes: null,
-    dayTimeLabel: null
+    dayTimeLabel: null,
+    description:
+      "Каналы: лично в ВК и Telegram; попросить ответственного за Max продублировать; съёмочный материал — в сторис тех же сетей."
   },
   {
-    title: "Поблагодарить гостя",
+    title: "Поблагодарить спикера, прислать ссылки",
     department: "GUESTS",
     triggerType: "EVENT",
     offsetDays: 3,
@@ -624,11 +512,12 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     group: "AFTER",
     sortOrder: 530,
     dayOffsetMinutes: null,
-    dayTimeLabel: null
+    dayTimeLabel: null,
+    description: "Ссылки на пост-отчёт, рилсы и фото."
   },
   {
-    title: "Ретро заполнено, посещаемость внесена",
-    department: null,
+    title: "Итоги: посещаемость и ретро",
+    department: "BOARD",
     triggerType: "EVENT",
     offsetDays: 3,
     triggerEvent: "EVENT_DONE",
@@ -639,6 +528,7 @@ export const LECTURE_TEMPLATE: LectureTemplateRow[] = [
     group: "AFTER",
     sortOrder: 540,
     dayOffsetMinutes: null,
-    dayTimeLabel: null
+    dayTimeLabel: null,
+    description: "Закроется сама, когда в блоке «Итоги» сохранены посещаемость и ретро."
   }
 ];

@@ -19,6 +19,7 @@ export type TemplateLike = {
   sortOrder: number;
   dayOffsetMinutes?: number | null;
   dayTimeLabel?: string | null;
+  description?: string | null;
 };
 
 export type DepartmentAssignment = { headId: string | null; deputyId: string | null };
@@ -42,17 +43,12 @@ export type GeneratedTaskRow = {
   sortOrder: number;
   dayOffsetMinutes: number | null;
   dayTimeLabel: string | null;
+  description: string | null;
 };
 
 /**
- * Кто второй «в контуре», если в отделе нет зама. По регламенту ЦБ работает в паре
- * с руководителем Гостей: «Степана познакомил с ЦБ — в контуре двое».
- */
-export const CONTOUR_PARTNER: Partial<Record<DepartmentCode, DepartmentCode>> = { SECURITY: "GUESTS" };
-
-/**
- * Исполнитель задачи: руководитель отдела; второй (если needsTwoAssignees) — зам отдела,
- * а если зама нет — руководитель отдела-напарника из CONTOUR_PARTNER. Без отдела — лид мероприятия.
+ * Исполнитель задачи: руководитель отдела (служебный аккаунт роли); второй — зам отдела,
+ * только если в шаблоне needsTwoAssignees. Без отдела — лид мероприятия.
  */
 export function resolveAssignees(
   department: DepartmentCode | null,
@@ -65,16 +61,12 @@ export function resolveAssignees(
   }
   const a = assignments[department];
   const assigneeId = a?.headId ?? null;
-  if (!needsTwoAssignees) return { assigneeId, secondAssigneeId: null };
-  const partner = CONTOUR_PARTNER[department];
-  let second = a?.deputyId ?? (partner ? assignments[partner]?.headId ?? null : null);
-  if (second === assigneeId) second = null;
-  return { assigneeId, secondAssigneeId: second };
+  const second = needsTwoAssignees ? a?.deputyId ?? null : null;
+  return { assigneeId, secondAssigneeId: second === assigneeId ? null : second };
 }
 
 /**
- * Срок задачи в момент разворачивания плана. План разворачивается по окну дат
- * (дата ещё предварительная) — по регламенту заявка в ЦБ подаётся до фиксации даты.
+ * Срок задачи в момент разворачивания плана (регламент v3: когда спикер подтвердил дату).
  * - DATE_OFFSET → targetDate + offsetDays (при фиксации даты пересчитываются)
  * - EVENT с триггером DATE_FIXED → если дата уже зафиксирована, срок = now + offsetDays,
  *   иначе ждёт фиксации
@@ -127,7 +119,8 @@ export function buildTaskRows(
       group: t.group,
       sortOrder: t.sortOrder,
       dayOffsetMinutes: t.dayOffsetMinutes ?? null,
-      dayTimeLabel: t.dayTimeLabel ?? null
+      dayTimeLabel: t.dayTimeLabel ?? null,
+      description: t.description ?? null
     };
   });
 }

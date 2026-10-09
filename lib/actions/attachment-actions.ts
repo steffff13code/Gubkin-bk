@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import type { AttachmentKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { friendlyError } from "@/lib/errors";
-import { isMember, requireUser } from "@/lib/permissions";
+import { isAdmin, requireUser } from "@/lib/permissions";
 import { autoCompleteTasks } from "@/lib/tasks/service";
 
 async function runOrRedirect(eventId: string, tab: string, fn: () => Promise<void>): Promise<never> {
@@ -22,7 +22,6 @@ async function runOrRedirect(eventId: string, tab: string, fn: () => Promise<voi
 export async function addAttachmentAction(eventId: string, formData: FormData): Promise<void> {
   await runOrRedirect(eventId, "files", async () => {
     const user = await requireUser();
-    if (!isMember(user)) throw new Error("Только вошедшие участники могут прикреплять ссылки.");
 
     const title = String(formData.get("title") || "").trim();
     const url = String(formData.get("url") || "").trim();
@@ -48,8 +47,8 @@ export async function deleteAttachmentAction(eventId: string, attachmentId: stri
     const user = await requireUser();
     const attachment = await prisma.attachment.findUnique({ where: { id: attachmentId } });
     if (!attachment) return;
-    if (attachment.addedById !== user.id && user.role !== "ADMIN") {
-      throw new Error("Удалить файл может только тот, кто его добавил, или руководитель клуба.");
+    if (attachment.addedById !== user.id && !isAdmin(user)) {
+      throw new Error("Удалить файл может только тот, кто его добавил, или администратор клуба.");
     }
     await prisma.attachment.delete({ where: { id: attachmentId } });
     await prisma.activityLog.create({
